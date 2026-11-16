@@ -1,0 +1,103 @@
+/* ==========================================================================
+   EcoRoute - responsive.css
+   Mobile-first. The app fills the screen on phones; on larger viewports it is
+   shown inside a centred phone-sized frame (it is a mobile app, not a website).
+   ========================================================================== */
+
+/* Desktop / tablet: centred phone frame */
+@media (min-width: 500px) and (min-height: 720px) {
+  .stage { padding: 20px; background:
+      radial-gradient(60% 50% at 20% 10%, rgba(35, 123, 80, .16), transparent 70%),
+      radial-gradient(50% 45% at 85% 90%, rgba(35, 123, 80, .12), transparent 70%); }
+  .app-shell {
+    height: min(900px, calc(100vh - 40px)); height: min(900px, calc(100dvh - 40px));
+    border-radius: 38px; box-shadow: 0 0 0 10px #0f1612, 0 0 0 11px #2a3a2f, 0 40px 90px rgba(10, 30, 18, .35);
+  }
+  :root[data-theme="dark"] .app-shell { box-shadow: 0 0 0 10px #050806, 0 0 0 11px #26352b, 0 40px 90px rgba(0, 0, 0, .7); }
+  .bottom-nav { border-radius: 24px 24px 0 0; }
+  /* safe-area insets do not apply inside the desktop frame */
+  :root { --safe-top: 0px; --safe-bottom: 0px; }
+}
+
+/* Larger phones / small tablets: keep the same phone width, a bit more breathing room */
+@media (min-width: 400px) {
+  .screen-body { padding-left: 22px; padding-right: 22px; }
+  .chip-scroll { margin-left: -22px; margin-right: -22px; padding-left: 22px; padding-right: 22px; }
+}
+
+/* Small phones (≤ 360px wide, e.g. 320–360 Android) */
+@media (max-width: 360px) {
+  body { font-size: 14.5px; }
+  h1 { font-size: 23px; }
+  .screen-body { padding-left: 16px; padding-right: 16px; }
+  .chip-scroll { margin-left: -16px; margin-right: -16px; padding-left: 16px; padding-right: 16px; }
+  .home-head h1 { font-size: 24px; }
+  .veh-card { padding: 13px; }
+  .veh-grid, .impact, .stat-grid, .sum-grid { gap: 10px; }
+  .stat-tile .st-val { font-size: 21px; }
+  .rc-metrics { gap: 4px; }
+  .rm b { font-size: 16px; }
+  .nav-metrics { gap: 2px; }
+  .metric b { font-size: 17px; }
+  .nav-head h2 { max-width: 170px; }
+  .nav-speedo { width: 54px; height: 54px; }
+  .field-pair { gap: 8px; }
+  .donut { width: 116px; height: 116px; }
+  .donut-wrap { gap: 14px; }
+  .ob-art { transform: scale(.88); }
+  .ob-slide h2 { font-size: 23px; }
+  .nav-item .ni-ic { width: 44px; }
+  .btn { padding: 0 16px; }
+  .art-chip { font-size: 12px; padding: 7px 11px; }
+}
+
+/* Very narrow (≤ 330px) */
+@media (max-width: 330px) {
+  .nav-item .ni-label { font-size: 10px; }
+  .mini-stat b { font-size: 16px; }
+  .rc-metrics { grid-template-columns: repeat(2, 1fr) auto; }
+  .rc-metrics .rm:nth-child(3) { grid-column: 1 / 2; }
+}
+
+/* Short screens (small phones in portrait / split-screen) */
+@media (max-height: 700px) {
+  .ob-art { height: 230px; transform: scale(.88); }
+  .art-disc { width: 220px; height: 220px; }
+  .ob-slide h2 { margin-top: 6px; font-size: 24px; }
+  .mini-map { height: 190px; }
+  .map-card-tall .mini-map { height: 230px; }
+  .splash-logo { width: 104px; height: 104px; }
+}
+@media (max-height: 640px) {
+  .nav-hint { display: none; }
+}
+@media (max-height: 620px) {
+  .ob-art { height: 190px; transform: scale(.75); margin: -20px 0; }
+  .nav-panel .nav-ev { display: none; }
+  .pp-veh .vs-main p { display: none; }
+  .nav-panel { padding-bottom: calc(10px + var(--safe-bottom)); }
+  .nav-panel .progress { margin: 8px 0; }
+  .nav-panel .nav-controls { margin-top: 10px; }
+  .nav-panel .nav-controls .btn-lg { min-height: 48px; }
+}
+
+/* Landscape phones: keep content usable; panels become narrower cards */
+@media (orientation: landscape) and (max-height: 520px) {
+  .app-shell { max-width: 100%; }
+  .screen-body { padding-left: max(22px, env(safe-area-inset-left)); padding-right: max(22px, env(safe-area-inset-right)); }
+  .nav-panel, .planner-panel { left: auto; right: 0; width: min(420px, 55%); border-radius: var(--r-xl) 0 0 0; }
+  .planner-top, .nav-top { right: auto; width: min(420px, 55%); }
+  .bottom-nav { padding-left: max(6px, env(safe-area-inset-left)); padding-right: max(6px, env(safe-area-inset-right)); }
+}
+
+/* Larger text / accessibility zoom */
+@media (min-resolution: 2.5dppx) and (max-width: 360px) { .chip { height: 38px; } }
+
+/* Touch devices: remove hover-only affordances */
+@media (hover: none) {
+  .suggest-item:hover { background: transparent; }
+  .btn-primary:hover:not(:disabled) { background: var(--primary); }
+}
+
+/* Print: not an app use-case, but keep it tidy */
+@media print { .bottom-nav, #toast-root, #sheet-root, #dialog-root { display: none !important; } }

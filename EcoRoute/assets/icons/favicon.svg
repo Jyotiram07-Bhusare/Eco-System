@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="EcoRoute logo">
+  <defs>
+    <linearGradient id="er-g" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#2F9A68"/>
+      <stop offset="1" stop-color="#1A5F3E"/>
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" rx="116" fill="url(#er-g)"/>
+  <!-- route trail -->
+  <path d="M112 404 C 170 440 250 440 320 410" fill="none" stroke="#fff" stroke-opacity=".55" stroke-width="16" stroke-linecap="round" stroke-dasharray="2 34"/>
+  <!-- leaf -->
+  <path d="M142 358 C 128 236 214 128 378 132 C 388 290 304 392 142 358 Z" fill="#fff"/>
+  <!-- vein -->
+  <path d="M168 336 L 304 206" fill="none" stroke="#237B50" stroke-width="16" stroke-linecap="round"/>
+  <path d="M236 270 L 232 214 M268 240 L 322 244" fill="none" stroke="#237B50" stroke-width="12" stroke-linecap="round" stroke-opacity=".8"/>
+  <!-- destination dot -->
+  <circle cx="352" cy="404" r="26" fill="#fff"/>
+  <circle cx="352" cy="404" r="11" fill="#237B50"/>
+</svg>

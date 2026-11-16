@@ -1,0 +1,85 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<!-- Users and their settings. Column aliases match the record components of User / UserSettings. -->
+<mapper namespace="com.ecoroute.user.UserMapper">
+
+  <sql id="userColumns">
+    id, email, password_hash AS passwordHash, name, phone, city, avatar_color AS avatarColor,
+    joined_at AS joinedAt, last_lat AS lastLat, last_lon AS lastLon, last_accuracy AS lastAccuracy,
+    last_seen_at AS lastSeenAt, last_address AS lastAddress
+  </sql>
+
+  <sql id="settingsColumns">
+    user_id AS userId, theme, notif_trip AS notifTrip, notif_tips AS notifTips, notif_charging AS notifCharging,
+    notif_weekly AS notifWeekly, move_mode AS moveMode, gps_scale AS gpsScale, demo_scale AS demoScale,
+    goal_kg AS goalKg, battery_pct AS batteryPct, active_vehicle_id AS activeVehicleId,
+    notif_read AS notifRead, share_location AS shareLocation
+  </sql>
+
+  <select id="findById" resultType="com.ecoroute.user.User">
+    SELECT <include refid="userColumns"/> FROM users WHERE id = #{id}
+  </select>
+
+  <select id="findByEmail" resultType="com.ecoroute.user.User">
+    SELECT <include refid="userColumns"/> FROM users WHERE email = #{email}
+  </select>
+
+  <insert id="insert" useGeneratedKeys="true" keyProperty="key.id">
+    INSERT INTO users (email, password_hash, name, joined_at)
+    VALUES (#{u.email}, #{u.passwordHash}, #{u.name}, #{u.joinedAt})
+  </insert>
+
+  <update id="updateProfile">
+    UPDATE users
+    SET name = #{name}, email = #{email}, phone = #{phone}, city = #{city}, avatar_color = #{color}
+    WHERE id = #{id}
+  </update>
+
+  <update id="updateLastLocation">
+    UPDATE users
+    SET last_lat = #{lat}, last_lon = #{lon}, last_accuracy = #{accuracy}, last_seen_at = #{seenAt},
+        last_address = COALESCE(#{address}, last_address)
+    WHERE id = #{id}
+  </update>
+
+  <update id="clearLastLocation">
+    UPDATE users
+    SET last_lat = NULL, last_lon = NULL, last_accuracy = NULL, last_seen_at = NULL, last_address = NULL
+    WHERE id = #{id}
+  </update>
+
+  <delete id="delete">
+    DELETE FROM users WHERE id = #{id}
+  </delete>
+
+  <select id="findSettings" resultType="com.ecoroute.user.UserSettings">
+    SELECT <include refid="settingsColumns"/> FROM user_settings WHERE user_id = #{userId}
+  </select>
+
+  <insert id="insertSettings">
+    INSERT INTO user_settings (user_id) VALUES (#{userId})
+  </insert>
+
+  <!-- Dynamic SQL: only the fields that were sent are updated. -->
+  <update id="updateSettings">
+    UPDATE user_settings
+    <set>
+      user_id = user_id,
+      <if test="s.theme != null">theme = #{s.theme},</if>
+      <if test="s.notifTrip != null">notif_trip = #{s.notifTrip},</if>
+      <if test="s.notifTips != null">notif_tips = #{s.notifTips},</if>
+      <if test="s.notifCharging != null">notif_charging = #{s.notifCharging},</if>
+      <if test="s.notifWeekly != null">notif_weekly = #{s.notifWeekly},</if>
+      <if test="s.moveMode != null">move_mode = #{s.moveMode},</if>
+      <if test="s.gpsScale != null">gps_scale = #{s.gpsScale},</if>
+      <if test="s.demoScale != null">demo_scale = #{s.demoScale},</if>
+      <if test="s.goalKg != null">goal_kg = #{s.goalKg},</if>
+      <if test="s.batteryPct != null">battery_pct = #{s.batteryPct},</if>
+      <if test="s.activeVehicleId != null">active_vehicle_id = #{s.activeVehicleId},</if>
+      <if test="s.notifRead != null">notif_read = #{s.notifRead},</if>
+      <if test="s.shareLocation != null">share_location = #{s.shareLocation},</if>
+    </set>
+    WHERE user_id = #{userId}
+  </update>
+
+</mapper>

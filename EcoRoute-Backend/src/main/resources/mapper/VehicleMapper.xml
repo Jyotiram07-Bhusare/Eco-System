@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ecoroute.vehicle.VehicleMapper">
+
+  <sql id="vehicleColumns">
+    id, user_id AS userId, type, company, model, fuel, mileage, battery_kwh AS batteryKwh,
+    range_km AS rangeKm, g_per_km AS gPerKm, wh_per_km AS whPerKm
+  </sql>
+
+  <select id="findByUser" resultType="com.ecoroute.vehicle.Vehicle">
+    SELECT <include refid="vehicleColumns"/> FROM vehicles WHERE user_id = #{userId} ORDER BY id
+  </select>
+
+  <select id="findOwned" resultType="com.ecoroute.vehicle.Vehicle">
+    SELECT <include refid="vehicleColumns"/> FROM vehicles WHERE user_id = #{userId} AND id = #{id}
+  </select>
+
+  <insert id="insert" useGeneratedKeys="true" keyProperty="key.id">
+    INSERT INTO vehicles (user_id, type, company, model, fuel, mileage, battery_kwh, range_km, g_per_km, wh_per_km)
+    VALUES (#{v.userId}, #{v.type}, #{v.company}, #{v.model}, #{v.fuel}, #{v.mileage}, #{v.batteryKwh},
+            #{v.rangeKm}, #{v.gPerKm}, #{v.whPerKm})
+  </insert>
+
+  <delete id="delete">
+    DELETE FROM vehicles WHERE user_id = #{userId} AND id = #{id}
+  </delete>
+
+  <delete id="deleteByUser">
+    DELETE FROM vehicles WHERE user_id = #{userId}
+  </delete>
+
+</mapper>

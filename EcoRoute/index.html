@@ -1,0 +1,573 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>EcoRoute – Smart Eco-Friendly Navigation</title>
+  <meta name="description" content="EcoRoute: compare routes by CO₂ emissions, track simulated journeys and find EV charging stations. Travel Smarter. Drive Greener. Live Better.">
+  <meta name="theme-color" content="#237B50">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="EcoRoute">
+  <script>
+    /* The web manifest (install + offline) only exists over http(s). Skipping the request when the file is opened
+       straight from disk keeps the console clean there; over http(s) this behaves exactly like a static <link>. */
+    if (/^https?:$/.test(location.protocol)) {
+      var m = document.createElement('link'); m.rel = 'manifest'; m.href = 'manifest.json'; document.head.appendChild(m);
+    }
+  </script>
+  <link rel="icon" type="image/svg+xml" href="assets/icons/favicon.svg">
+  <link rel="apple-touch-icon" href="assets/icons/apple-touch-icon.png">
+  <link rel="stylesheet" href="css/style.css">
+  <link rel="stylesheet" href="css/animations.css">
+  <link rel="stylesheet" href="css/responsive.css">
+</head>
+<body>
+<noscript><p style="padding:24px;font-family:sans-serif">EcoRoute needs JavaScript to run.</p></noscript>
+
+<div class="stage">
+<div id="app" class="app-shell" data-screen="splash">
+  <main class="screens">
+
+    <!-- ===================== 1. SPLASH ===================== -->
+    <section id="screen-splash" class="screen splash-screen is-active" aria-label="EcoRoute splash">
+      <div class="splash-bg" aria-hidden="true"><span class="orb o1"></span><span class="orb o2"></span><span class="orb o3"></span></div>
+      <div class="splash-center">
+        <div class="splash-logo"><img src="assets/logo/logo.svg" alt="" width="112" height="112"></div>
+        <h1 class="splash-name">EcoRoute</h1>
+        <p class="splash-tag">Travel Smarter. Drive Greener.</p>
+      </div>
+      <div class="splash-loader" role="status">
+        <div class="loader-track"><span class="loader-bar"></span></div>
+        <p>Preparing your eco journey…</p>
+      </div>
+    </section>
+
+    <!-- ===================== 2. ONBOARDING ===================== -->
+    <section id="screen-onboarding" class="screen" aria-label="Welcome">
+      <header class="ob-top">
+        <span class="ob-brand"><img src="assets/logo/logo.svg" alt="" width="28" height="28"> EcoRoute</span>
+        <button type="button" class="link-btn" data-action="ob-skip">Skip</button>
+      </header>
+      <div class="ob-viewport" id="ob-viewport">
+        <div class="ob-track" id="ob-track">
+          <article class="ob-slide" aria-label="Slide 1 of 3">
+            <div class="ob-art">
+              <div class="art-disc"></div>
+              <svg class="art-map" viewBox="0 0 260 210" aria-hidden="true">
+                <rect x="4" y="4" width="252" height="202" rx="26" class="am-bg"/>
+                <g class="am-roads"><path d="M4 70H256M4 140H256M72 4V206M150 4V206M214 4V206"/></g>
+                <path class="am-alt" d="M40 170 L40 100 L150 100 L150 60 L214 60"/>
+                <path class="am-alt" d="M40 170 L110 170 L110 140 L214 140 L214 60"/>
+                <path class="am-main" d="M40 170 L72 170 L72 70 L150 70 L150 60 L214 60"/>
+                <circle cx="40" cy="170" r="9" class="am-from"/><circle cx="40" cy="170" r="3.5" fill="#fff"/>
+                <path d="M214 60 c-4 -6 -12 -12 -12 -22 a12 12 0 1 1 24 0 c0 10 -8 16 -12 22z" class="am-pin"/><circle cx="214" cy="38" r="4.5" fill="#fff"/>
+              </svg>
+              <div class="art-chip c1"><i data-icon="leaf" data-size="16"></i> Eco route</div>
+              <div class="art-chip c2"><b>−18%</b> CO₂</div>
+            </div>
+            <h2>Find Smart Routes</h2>
+            <p>Compare shortest, fastest and eco-friendly routes side by side and pick the one that fits your day.</p>
+          </article>
+          <article class="ob-slide" aria-label="Slide 2 of 3">
+            <div class="ob-art">
+              <div class="art-disc"></div>
+              <div class="art-gauge">
+                <svg viewBox="0 0 160 160" aria-hidden="true"><circle cx="80" cy="80" r="66" class="ag-bg"/><circle cx="80" cy="80" r="66" class="ag-fg" transform="rotate(-90 80 80)"/></svg>
+                <div class="ag-val"><b>92</b><span>Eco Score</span></div>
+              </div>
+              <div class="art-chip c1"><i data-icon="wind" data-size="16"></i> −2.4 kg CO₂</div>
+              <div class="art-chip c3"><i data-icon="trees" data-size="16"></i> 12 tree-days</div>
+            </div>
+            <h2>Reduce Carbon Emissions</h2>
+            <p>See estimated CO₂ for every trip, track the carbon you save and watch your Eco Score grow.</p>
+          </article>
+          <article class="ob-slide" aria-label="Slide 3 of 3">
+            <div class="ob-art">
+              <div class="art-disc"></div>
+              <div class="art-ev">
+                <div class="ev-ic"><i data-icon="plug" data-size="46"></i></div>
+                <div class="ev-bars"><span></span><span></span><span></span><span></span><span class="off"></span></div>
+                <div class="ev-meta"><b>78%</b> charged</div>
+              </div>
+              <div class="art-chip c1"><i data-icon="zap" data-size="16"></i> CCS2 · 60 kW</div>
+              <div class="art-chip c2"><i data-icon="map-pin" data-size="16"></i> 0.8 km</div>
+            </div>
+            <h2>Discover EV Charging Stations</h2>
+            <p>Find nearby chargers, check connectors and power, and plan around your battery level.</p>
+          </article>
+        </div>
+      </div>
+      <footer class="ob-foot">
+        <div class="dots" id="ob-dots" aria-hidden="true"><span class="active"></span><span></span><span></span></div>
+        <button type="button" class="btn btn-primary btn-lg btn-block" id="ob-next" data-action="ob-next">Next</button>
+      </footer>
+    </section>
+
+    <!-- ===================== 3. LOGIN & REGISTER ===================== -->
+    <section id="screen-auth" class="screen" aria-label="Sign in">
+      <div class="screen-body auth-body">
+        <div class="auth-hero">
+          <img src="assets/logo/logo.svg" alt="" width="64" height="64">
+          <h1>Welcome to EcoRoute</h1>
+          <p>Travel Smarter. Drive Greener. Live Better.</p>
+        </div>
+
+        <div class="seg seg-2" id="auth-seg" role="tablist" aria-label="Login or register">
+          <span class="seg-thumb" aria-hidden="true"></span>
+          <button type="button" class="seg-btn active" role="tab" aria-selected="true" data-auth-tab="login">Login</button>
+          <button type="button" class="seg-btn" role="tab" aria-selected="false" data-auth-tab="register">Register</button>
+        </div>
+
+        <form id="form-login" class="auth-form" novalidate autocomplete="on">
+          <div class="field" data-field="email">
+            <label for="login-email">Email</label>
+            <div class="input-wrap"><i data-icon="mail"></i><input id="login-email" name="email" type="email" inputmode="email" autocomplete="email" placeholder="you@example.com"></div>
+            <p class="field-error" role="alert"></p>
+          </div>
+          <div class="field" data-field="password">
+            <label for="login-password">Password</label>
+            <div class="input-wrap"><i data-icon="lock"></i><input id="login-password" name="password" type="password" autocomplete="current-password" placeholder="Your password"><button type="button" class="input-eye" data-action="toggle-pass" aria-label="Show password"><i data-icon="eye"></i></button></div>
+            <p class="field-error" role="alert"></p>
+          </div>
+          <div class="auth-row"><span></span><button type="button" class="link-btn" data-action="forgot-password">Forgot password?</button></div>
+          <button type="submit" class="btn btn-primary btn-lg btn-block">Login</button>
+        </form>
+
+        <form id="form-register" class="auth-form hidden" novalidate autocomplete="on">
+          <div class="field" data-field="name">
+            <label for="reg-name">Full name</label>
+            <div class="input-wrap"><i data-icon="user"></i><input id="reg-name" name="name" type="text" autocomplete="name" placeholder="Alex Morgan"></div>
+            <p class="field-error" role="alert"></p>
+          </div>
+          <div class="field" data-field="email">
+            <label for="reg-email">Email</label>
+            <div class="input-wrap"><i data-icon="mail"></i><input id="reg-email" name="email" type="email" inputmode="email" autocomplete="email" placeholder="you@example.com"></div>
+            <p class="field-error" role="alert"></p>
+          </div>
+          <div class="field" data-field="password">
+            <label for="reg-password">Password</label>
+            <div class="input-wrap"><i data-icon="lock"></i><input id="reg-password" name="password" type="password" autocomplete="new-password" placeholder="At least 8 characters"><button type="button" class="input-eye" data-action="toggle-pass" aria-label="Show password"><i data-icon="eye"></i></button></div>
+            <div class="strength" id="pass-strength" aria-hidden="true"><span></span><span></span><span></span><span></span><em>Password strength</em></div>
+            <p class="field-error" role="alert"></p>
+          </div>
+          <div class="field" data-field="confirm">
+            <label for="reg-confirm">Confirm password</label>
+            <div class="input-wrap"><i data-icon="lock"></i><input id="reg-confirm" name="confirm" type="password" autocomplete="new-password" placeholder="Repeat your password"><button type="button" class="input-eye" data-action="toggle-pass" aria-label="Show password"><i data-icon="eye"></i></button></div>
+            <p class="field-error" role="alert"></p>
+          </div>
+          <button type="submit" class="btn btn-primary btn-lg btn-block">Create account</button>
+        </form>
+
+        <div class="divider"><span>or</span></div>
+        <button type="button" class="btn btn-secondary btn-block" data-action="demo-login"><i data-icon="sparkles" data-size="18"></i> Continue with demo account</button>
+        <p class="fine center" id="auth-note">Demo mode: no real account, server or personal data is used.</p>
+      </div>
+    </section>
+
+    <!-- ===================== 4. HOME DASHBOARD ===================== -->
+    <section id="screen-home" class="screen" aria-label="Home">
+      <div class="screen-body has-nav-pad">
+        <header class="home-head">
+          <div>
+            <p class="muted" id="home-greet">Good morning</p>
+            <h1 id="home-name">Alex</h1>
+          </div>
+          <div class="head-actions">
+            <button type="button" class="icon-btn" data-action="open-notifications" aria-label="Notifications"><i data-icon="bell"></i><span class="dot" id="home-bell-dot"></span></button>
+            <button type="button" class="avatar-btn" data-go="profile" id="home-avatar" aria-label="Open profile">A</button>
+          </div>
+        </header>
+
+        <article class="card loc-card" id="home-loc">
+          <div class="loc-map" id="home-map" aria-hidden="true"></div>
+          <span class="map-note" aria-hidden="true">Simulated city map</span>
+          <div class="loc-info">
+            <span class="loc-ic"><i data-icon="locate-fixed" data-size="20"></i></span>
+            <div class="loc-text">
+              <p class="eyebrow">Your location <span class="live-pill hidden" id="home-loc-pill">Live</span></p>
+              <h3 id="home-loc-name">Finding your location…</h3>
+              <p class="muted small" id="home-loc-sub">Allow location access if your browser asks.</p>
+              <p class="loc-coords" id="home-loc-coords"></p>
+            </div>
+            <button type="button" class="icon-btn icon-btn-sm" data-action="refresh-location" aria-label="Refresh location"><i data-icon="refresh" data-size="18"></i></button>
+          </div>
+        </article>
+
+        <article class="card search-card">
+          <label class="sr-only" for="home-search">Search destination</label>
+          <div class="search-box">
+            <i data-icon="search"></i>
+            <input id="home-search" type="search" placeholder="Where do you want to go?" autocomplete="off" enterkeyhint="search">
+            <button type="button" class="icon-btn icon-btn-sm hidden" id="home-search-clear" aria-label="Clear destination"><i data-icon="x" data-size="16"></i></button>
+          </div>
+          <div class="suggest hidden" id="home-suggest" role="listbox"></div>
+          <div class="chosen hidden" id="home-chosen"></div>
+        </article>
+
+        <article class="card veh-strip" id="home-veh"></article>
+
+        <button type="button" class="btn btn-primary btn-lg btn-block" id="home-find" data-action="find-route"><i data-icon="route" data-size="20"></i> Find Eco Route</button>
+
+        <section class="block">
+          <div class="block-head"><h2>Your impact</h2><button type="button" class="link-btn" data-go="analytics">Analytics <i data-icon="chevron-right" data-size="16"></i></button></div>
+          <div id="home-stats" class="impact"></div>
+        </section>
+
+        <section class="block">
+          <div class="block-head"><h2>Recent journeys</h2><button type="button" class="link-btn" data-go="history">See all <i data-icon="chevron-right" data-size="16"></i></button></div>
+          <div id="home-recent" class="list"></div>
+        </section>
+
+        <aside class="tip-card" id="home-tip"></aside>
+      </div>
+    </section>
+
+    <!-- ===================== 5. VEHICLE SELECTION ===================== -->
+    <section id="screen-vehicles" class="screen" aria-label="Select vehicle">
+      <header class="app-bar">
+        <button type="button" class="icon-btn" data-back aria-label="Back"><i data-icon="arrow-left"></i></button>
+        <h1 id="veh-title">Select Vehicle</h1>
+        <button type="button" class="icon-btn" data-go="add-vehicle" aria-label="Add vehicle"><i data-icon="plus"></i></button>
+      </header>
+      <div class="screen-body with-footer">
+        <p class="lead" id="veh-lead">Pick the vehicle you’ll be travelling in. Emissions are estimated from its fuel type.</p>
+        <h2 class="sec-title">Vehicle type</h2>
+        <div class="veh-grid" id="veh-types"></div>
+        <div class="block-head"><h2>My garage</h2><button type="button" class="link-btn" data-go="add-vehicle"><i data-icon="plus" data-size="16"></i> Add</button></div>
+        <div class="list" id="veh-garage"></div>
+      </div>
+      <footer class="sticky-foot" id="veh-foot">
+        <button type="button" class="btn btn-primary btn-lg btn-block" data-action="vehicle-confirm">Confirm vehicle</button>
+      </footer>
+    </section>
+
+    <!-- ===================== 6. ADD VEHICLE ===================== -->
+    <section id="screen-add-vehicle" class="screen" aria-label="Add vehicle">
+      <header class="app-bar">
+        <button type="button" class="icon-btn" data-back aria-label="Back"><i data-icon="arrow-left"></i></button>
+        <h1>Add Vehicle</h1>
+        <span class="bar-spacer"></span>
+      </header>
+      <div class="screen-body with-footer">
+        <form id="form-vehicle" novalidate>
+          <div class="field">
+            <label id="lbl-category">Vehicle category</label>
+            <div class="chip-row" id="av-category" role="radiogroup" aria-labelledby="lbl-category">
+              <button type="button" class="chip active" role="radio" aria-checked="true" data-cat="car"><i data-icon="car" data-size="18"></i> Car</button>
+              <button type="button" class="chip" role="radio" aria-checked="false" data-cat="bike"><i data-icon="bike" data-size="18"></i> Bike</button>
+            </div>
+          </div>
+          <div class="field" data-field="company">
+            <label for="av-company">Company</label>
+            <div class="input-wrap"><i data-icon="building"></i><input id="av-company" name="company" list="av-company-list" type="text" placeholder="e.g. Tata" autocomplete="off"></div>
+            <datalist id="av-company-list"></datalist>
+            <p class="field-error" role="alert"></p>
+          </div>
+          <div class="field" data-field="model">
+            <label for="av-model">Model</label>
+            <div class="input-wrap"><i data-icon="car-front"></i><input id="av-model" name="model" type="text" placeholder="e.g. Nexon EV" autocomplete="off"></div>
+            <p class="field-error" role="alert"></p>
+          </div>
+          <div class="field">
+            <label id="lbl-fuel">Fuel type</label>
+            <div class="chip-row" id="av-fuel" role="radiogroup" aria-labelledby="lbl-fuel">
+              <button type="button" class="chip active" role="radio" aria-checked="true" data-fuel="Petrol"><i data-icon="fuel" data-size="18"></i> Petrol</button>
+              <button type="button" class="chip" role="radio" aria-checked="false" data-fuel="Diesel"><i data-icon="droplets" data-size="18"></i> Diesel</button>
+              <button type="button" class="chip" role="radio" aria-checked="false" data-fuel="Electric"><i data-icon="zap" data-size="18"></i> Electric</button>
+            </div>
+          </div>
+          <div class="field-pair">
+            <div class="field" data-field="mileage" id="av-mileage-field">
+              <label for="av-mileage">Mileage (km/l)</label>
+              <div class="input-wrap"><i data-icon="gauge"></i><input id="av-mileage" name="mileage" type="number" inputmode="decimal" step="0.1" min="1" placeholder="15"></div>
+              <p class="field-error" role="alert"></p>
+            </div>
+            <div class="field hidden" data-field="battery" id="av-battery-field">
+              <label for="av-battery">Battery (kWh)</label>
+              <div class="input-wrap"><i data-icon="battery-charging"></i><input id="av-battery" name="battery" type="number" inputmode="decimal" step="0.1" min="0.5" placeholder="40"></div>
+              <p class="field-error" role="alert"></p>
+            </div>
+            <div class="field" data-field="range">
+              <label for="av-range">Est. range (km)</label>
+              <div class="input-wrap"><i data-icon="route"></i><input id="av-range" name="range" type="number" inputmode="numeric" min="10" placeholder="300"></div>
+              <p class="field-error" role="alert"></p>
+            </div>
+          </div>
+          <p class="hint" id="av-hint"></p>
+          <article class="card preview-card" id="av-preview"></article>
+        </form>
+      </div>
+      <footer class="sticky-foot">
+        <button type="submit" form="form-vehicle" class="btn btn-primary btn-lg btn-block"><i data-icon="check" data-size="20"></i> Save vehicle</button>
+      </footer>
+    </section>
+
+    <!-- ===================== 7. ROUTE PLANNER (Explore) ===================== -->
+    <section id="screen-planner" class="screen planner-screen" aria-label="Route planner">
+      <div id="planner-map" class="full-map"></div>
+      <span class="sim-tag"><i data-icon="info" data-size="14"></i> Simulated map</span>
+      <div class="planner-top">
+        <div class="card route-fields-card">
+          <div class="rail" aria-hidden="true"><span class="rail-dot"></span><span class="rail-line"></span><i data-icon="map-pin" data-size="18"></i></div>
+          <div class="rf-fields">
+            <div class="rf-row">
+              <label class="sr-only" for="planner-from">From</label>
+              <input id="planner-from" type="text" value="Current Location" readonly>
+              <button type="button" class="icon-btn icon-btn-sm" data-action="planner-locate" aria-label="Centre on my location"><i data-icon="locate-fixed" data-size="18"></i></button>
+            </div>
+            <div class="rf-row">
+              <label class="sr-only" for="planner-to">Destination</label>
+              <input id="planner-to" type="search" placeholder="Search destination" autocomplete="off">
+              <button type="button" class="icon-btn icon-btn-sm hidden" id="planner-clear" aria-label="Clear destination"><i data-icon="x" data-size="16"></i></button>
+            </div>
+          </div>
+        </div>
+        <div class="suggest suggest-float hidden" id="planner-suggest" role="listbox"></div>
+      </div>
+      <div class="planner-panel">
+        <div class="sheet-grab" aria-hidden="true"></div>
+        <div class="pp-veh" id="planner-veh"></div>
+        <div class="battery-box hidden" id="planner-battery"></div>
+        <p class="pp-hint" id="planner-hint">Tap a pin on the map or search for a destination.</p>
+        <button type="button" class="btn btn-primary btn-lg btn-block" id="planner-find" data-action="find-route"><i data-icon="route" data-size="20"></i> Find Route</button>
+      </div>
+    </section>
+
+    <!-- ===================== 8. ROUTE COMPARISON ===================== -->
+    <section id="screen-routes" class="screen" aria-label="Route comparison">
+      <header class="app-bar">
+        <button type="button" class="icon-btn" data-back aria-label="Back"><i data-icon="arrow-left"></i></button>
+        <div class="bar-title"><h1>Choose Route</h1><p id="routes-sub">—</p></div>
+        <button type="button" class="icon-btn" data-action="routes-refresh" aria-label="Recalculate routes"><i data-icon="refresh"></i></button>
+      </header>
+      <div class="screen-body has-nav-pad">
+        <div class="map-card"><div id="routes-map" class="mini-map"></div><span class="sim-tag sim-tag-in"><i data-icon="info" data-size="14"></i> Simulated routes</span></div>
+        <div id="routes-summary" class="callout"></div>
+        <div id="routes-list" class="route-list"></div>
+        <p class="fine center">Distances, times and CO₂ are simulated estimates for demonstration.</p>
+      </div>
+    </section>
+
+    <!-- ===================== 9. LIVE NAVIGATION ===================== -->
+    <section id="screen-navigation" class="screen nav-screen" aria-label="Live navigation">
+      <div id="nav-map" class="full-map"></div>
+      <span class="sim-tag sim-tag-nav"><i data-icon="info" data-size="14"></i> <span id="nav-tag-text">Live GPS · simulated map</span></span>
+      <div class="nav-top">
+        <button type="button" class="icon-btn icon-btn-float" data-action="nav-back" aria-label="Back"><i data-icon="arrow-left"></i></button>
+        <div class="nav-banner" id="nav-banner" aria-live="polite">
+          <span class="nb-ic" id="nb-ic"><i data-icon="navigation-2"></i></span>
+          <div><p class="nb-main" id="nb-main">Ready to start</p><p class="nb-sub" id="nb-sub">Tap Start to begin your simulated journey</p></div>
+        </div>
+      </div>
+      <div class="nav-side">
+        <button type="button" class="icon-btn icon-btn-float" data-action="nav-recenter" aria-label="Recentre map"><i data-icon="locate-fixed"></i></button>
+        <button type="button" class="icon-btn icon-btn-float speed-btn mode-btn" data-action="nav-mode" aria-label="Movement source: live GPS. Tap to switch" id="nav-mode">GPS</button>
+        <button type="button" class="icon-btn icon-btn-float speed-btn" data-action="nav-speed" aria-label="Movement scale" id="nav-speed">1×</button>
+      </div>
+      <div class="nav-panel" id="nav-panel">
+        <div class="sheet-grab" aria-hidden="true"></div>
+        <div class="nav-head">
+          <div><p class="eyebrow" id="nv-state">Ready</p><h2 id="nv-dest">Destination</h2></div>
+          <div class="nav-speedo"><b id="nv-speed">0</b><span>km/h</span></div>
+        </div>
+        <div class="progress" aria-hidden="true"><span id="nv-progress"></span></div>
+        <div class="nav-metrics">
+          <div class="metric"><span class="m-label">Travelled</span><b id="nv-travelled">0</b><span class="m-unit" id="nv-travelled-unit">m</span></div>
+          <div class="metric"><span class="m-label">Remaining</span><b id="nv-remaining">0.0</b><span class="m-unit" id="nv-remaining-unit">km</span></div>
+          <div class="metric"><span class="m-label">Arrival</span><b id="nv-eta">--:--</b><span class="m-unit" id="nv-eta-sub">ETA</span></div>
+          <div class="metric"><span class="m-label">CO₂ so far</span><b id="nv-co2">0</b><span class="m-unit" id="nv-co2-unit">g</span></div>
+        </div>
+        <div class="nav-ev hidden" id="nv-ev">
+          <i data-icon="battery-charging" data-size="18"></i>
+          <div class="ev-track"><span id="nv-batt-bar"></span></div>
+          <b id="nv-batt">64%</b>
+          <span class="muted small" id="nv-batt-range">~190 km range</span>
+        </div>
+        <div class="nav-controls" id="nav-controls"></div>
+      </div>
+    </section>
+
+    <!-- ===================== 10. EV CHARGING ===================== -->
+    <section id="screen-charging" class="screen" aria-label="EV charging stations">
+      <div class="screen-body has-nav-pad">
+        <header class="page-head">
+          <div><h1>EV Charging</h1><p class="muted">Nearby stations · <span class="badge badge-amber">Sample data</span></p></div>
+          <button type="button" class="icon-btn" data-action="charging-refresh" aria-label="Refresh availability"><i data-icon="refresh"></i></button>
+        </header>
+        <article class="card battery-card" id="chg-battery"></article>
+        <div class="map-card map-card-tall" style="margin-top:14px"><div id="charging-map" class="mini-map"></div><span class="sim-tag sim-tag-in"><i data-icon="info" data-size="14"></i> Simulated map &amp; availability</span></div>
+        <div class="chip-scroll" id="chg-filters" role="toolbar" aria-label="Filter stations"></div>
+        <p class="muted small" id="chg-count"></p>
+        <div class="list" id="chg-list"></div>
+      </div>
+    </section>
+
+    <!-- ===================== 11. JOURNEY SUMMARY ===================== -->
+    <section id="screen-summary" class="screen" aria-label="Journey summary">
+      <header class="app-bar">
+        <button type="button" class="icon-btn" data-action="summary-close" aria-label="Close"><i data-icon="x"></i></button>
+        <h1>Journey Summary</h1>
+        <button type="button" class="icon-btn" data-action="summary-share" aria-label="Share"><i data-icon="share-2"></i></button>
+      </header>
+      <div class="screen-body with-footer" id="summary-body"></div>
+      <footer class="sticky-foot" id="summary-foot"></footer>
+    </section>
+
+    <!-- ===================== 12. JOURNEY HISTORY ===================== -->
+    <section id="screen-history" class="screen" aria-label="Journey history">
+      <div class="screen-body has-nav-pad">
+        <header class="page-head">
+          <div><h1>Journey History</h1><p class="muted" id="hist-sub">—</p></div>
+          <div class="head-actions">
+            <button type="button" class="icon-btn" data-go="analytics" aria-label="Analytics"><i data-icon="bar-chart"></i></button>
+            <button type="button" class="icon-btn" data-action="history-clear" aria-label="Clear history"><i data-icon="trash-2"></i></button>
+          </div>
+        </header>
+        <div id="hist-stats" class="mini-stats"></div>
+        <div class="chip-scroll" id="hist-filters" role="toolbar" aria-label="Filter by vehicle"></div>
+        <div id="hist-list"></div>
+      </div>
+    </section>
+
+    <!-- ===================== 13. ECO ANALYTICS ===================== -->
+    <section id="screen-analytics" class="screen" aria-label="Eco analytics">
+      <header class="app-bar">
+        <button type="button" class="icon-btn" data-back aria-label="Back"><i data-icon="arrow-left"></i></button>
+        <h1>Eco Analytics</h1>
+        <span class="bar-spacer"></span>
+      </header>
+      <div class="screen-body has-nav-pad">
+        <!-- this month's goal: a meter, outside the period filter (it is always "this month") -->
+        <article class="card goal-card" id="an-goal" style="margin-top:0"></article>
+
+        <!-- one filter row, above everything it scopes -->
+        <div class="seg seg-2" id="an-seg" role="tablist" aria-label="Period" style="margin-top:18px">
+          <span class="seg-thumb" aria-hidden="true"></span>
+          <button type="button" class="seg-btn active" role="tab" aria-selected="true" data-period="week">Weekly</button>
+          <button type="button" class="seg-btn" role="tab" aria-selected="false" data-period="month">Monthly</button>
+        </div>
+
+        <div id="an-tiles" class="stat-grid"></div>
+        <p class="hint" style="margin:8px 2px 0">Tap Distance, Emissions or Saved to chart it.</p>
+
+        <figure class="card chart-card" id="an-card-bars">
+          <figcaption class="chart-head">
+            <div><h3 id="an-chart-title">Distance</h3><p class="muted small" id="an-chart-sub"></p></div>
+            <button type="button" class="link-btn tbl-toggle" data-table-toggle="bars" aria-pressed="false"><i data-icon="file-text" data-size="16"></i><span>Table</span></button>
+          </figcaption>
+          <div id="an-bars" class="chart-area"></div>
+          <div id="an-bars-table" class="chart-table hidden"></div>
+        </figure>
+
+        <figure class="card chart-card" id="an-card-line">
+          <figcaption class="chart-head">
+            <div><h3>Eco Score trend</h3><p class="muted small" id="an-line-sub">Distance-weighted score per period</p></div>
+            <button type="button" class="link-btn tbl-toggle" data-table-toggle="line" aria-pressed="false"><i data-icon="file-text" data-size="16"></i><span>Table</span></button>
+          </figcaption>
+          <div id="an-line" class="chart-area chart-area-sm"></div>
+          <div id="an-line-table" class="chart-table hidden"></div>
+        </figure>
+
+        <figure class="card chart-card" id="an-card-rank">
+          <figcaption class="chart-head">
+            <div><h3>Emissions by vehicle</h3><p class="muted small" id="an-rank-sub"></p></div>
+            <button type="button" class="link-btn tbl-toggle" data-table-toggle="rank" aria-pressed="false"><i data-icon="file-text" data-size="16"></i><span>Table</span></button>
+          </figcaption>
+          <div id="an-rank" class="rank-list"></div>
+          <div id="an-rank-table" class="chart-table hidden"></div>
+        </figure>
+        <p class="fine center">Carbon saved is measured against an average petrol car (170 g CO₂/km). All figures are simulated estimates.</p>
+      </div>
+    </section>
+
+    <!-- ===================== 14. PROFILE & SETTINGS ===================== -->
+    <section id="screen-profile" class="screen" aria-label="Profile and settings">
+      <div class="screen-body has-nav-pad">
+        <header class="page-head"><div><h1>Profile</h1><p class="muted">Account &amp; settings</p></div></header>
+        <article class="card profile-card" id="profile-card"></article>
+
+        <h2 class="sec-title">Account</h2>
+        <div class="menu">
+          <button type="button" class="menu-item" data-action="edit-profile"><span class="mi-ic"><i data-icon="pencil" data-size="20"></i></span><span class="mi-text"><b>Edit Profile</b><small>Name, email, city</small></span><i data-icon="chevron-right" data-size="18" class="mi-chev"></i></button>
+          <button type="button" class="menu-item" data-action="open-garage"><span class="mi-ic"><i data-icon="car" data-size="20"></i></span><span class="mi-text"><b>Saved Vehicles</b><small id="mi-garage-sub">—</small></span><i data-icon="chevron-right" data-size="18" class="mi-chev"></i></button>
+        </div>
+
+        <h2 class="sec-title">Preferences</h2>
+        <article class="card pref-card">
+          <div class="pref-row">
+            <div class="pref-label"><span class="mi-ic"><i data-icon="palette" data-size="20"></i></span><div><b>Theme</b><small>Choose how EcoRoute looks</small></div></div>
+          </div>
+          <div class="seg seg-3" id="theme-seg" role="radiogroup" aria-label="Theme">
+            <span class="seg-thumb" aria-hidden="true"></span>
+            <button type="button" class="seg-btn" role="radio" data-theme-pref="light"><i data-icon="sun" data-size="16"></i> Light</button>
+            <button type="button" class="seg-btn" role="radio" data-theme-pref="dark"><i data-icon="moon" data-size="16"></i> Dark</button>
+            <button type="button" class="seg-btn" role="radio" data-theme-pref="system"><i data-icon="smartphone" data-size="16"></i> Auto</button>
+          </div>
+        </article>
+
+        <h2 class="sec-title">Notifications</h2>
+        <article class="card pref-card" id="notif-card">
+          <div class="pref-row"><div class="pref-label"><span class="mi-ic"><i data-icon="route" data-size="20"></i></span><div><b>Trip reminders</b><small>Departure and arrival updates</small></div></div><label class="switch"><input type="checkbox" data-notif="trip"><span></span><em class="sr-only">Trip reminders</em></label></div>
+          <div class="pref-row"><div class="pref-label"><span class="mi-ic"><i data-icon="leaf" data-size="20"></i></span><div><b>Eco tips</b><small>Ideas to cut your emissions</small></div></div><label class="switch"><input type="checkbox" data-notif="tips"><span></span><em class="sr-only">Eco tips</em></label></div>
+          <div class="pref-row"><div class="pref-label"><span class="mi-ic"><i data-icon="zap" data-size="20"></i></span><div><b>Charging alerts</b><small>Low battery &amp; free chargers</small></div></div><label class="switch"><input type="checkbox" data-notif="charging"><span></span><em class="sr-only">Charging alerts</em></label></div>
+          <div class="pref-row"><div class="pref-label"><span class="mi-ic"><i data-icon="bar-chart" data-size="20"></i></span><div><b>Weekly report</b><small>Your Eco Score summary</small></div></div><label class="switch"><input type="checkbox" data-notif="weekly"><span></span><em class="sr-only">Weekly report</em></label></div>
+        </article>
+
+        <h2 class="sec-title">Privacy &amp; data</h2>
+        <article class="card pref-card" id="privacy-card">
+          <div class="pref-row" id="pv-share-row"><div class="pref-label"><span class="mi-ic"><i data-icon="map-pin" data-size="20"></i></span><div><b>Save my location history</b><small>Keeps your GPS positions in the database</small></div></div><label class="switch"><input type="checkbox" data-privacy="shareLocation"><span></span><em class="sr-only">Save my location history</em></label></div>
+          <div class="pref-row" id="pv-store-row"><div class="pref-label"><span class="mi-ic"><i data-icon="shield-check" data-size="20"></i></span><div><b id="pv-store-title">Where your data lives</b><small id="pv-store-sub">—</small></div></div></div>
+        </article>
+        <div class="menu hidden" id="privacy-menu">
+          <button type="button" class="menu-item" data-action="clear-location-history"><span class="mi-ic"><i data-icon="trash-2" data-size="20"></i></span><span class="mi-text"><b>Delete location history</b><small>Remove every saved GPS position</small></span><i data-icon="chevron-right" data-size="18" class="mi-chev"></i></button>
+          <button type="button" class="menu-item" data-action="delete-account"><span class="mi-ic"><i data-icon="user" data-size="20"></i></span><span class="mi-text"><b>Delete my account</b><small>Erase the account and everything saved for it</small></span><i data-icon="chevron-right" data-size="18" class="mi-chev"></i></button>
+        </div>
+
+        <h2 class="sec-title">More</h2>
+        <div class="menu">
+          <button type="button" class="menu-item hidden" id="mi-install" data-action="install-app"><span class="mi-ic"><i data-icon="download" data-size="20"></i></span><span class="mi-text"><b>Install EcoRoute</b><small>Add to your home screen</small></span><i data-icon="chevron-right" data-size="18" class="mi-chev"></i></button>
+          <button type="button" class="menu-item" data-action="about"><span class="mi-ic"><i data-icon="info" data-size="20"></i></span><span class="mi-text"><b>About EcoRoute</b><small>Version 1.1 · Demo build</small></span><i data-icon="chevron-right" data-size="18" class="mi-chev"></i></button>
+          <button type="button" class="menu-item" data-action="reset-demo"><span class="mi-ic"><i data-icon="rotate-ccw" data-size="20"></i></span><span class="mi-text"><b id="mi-reset-title">Reset demo data</b><small id="mi-reset-sub">Restore sample journeys &amp; vehicles</small></span><i data-icon="chevron-right" data-size="18" class="mi-chev"></i></button>
+        </div>
+        <button type="button" class="btn btn-danger-soft btn-block logout-btn" data-action="logout"><i data-icon="log-out" data-size="20"></i> Log out</button>
+        <p class="fine center">Travel Smarter. Drive Greener. Live Better.</p>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- ===================== BOTTOM NAVIGATION ===================== -->
+  <nav id="bottom-nav" class="bottom-nav hidden" aria-label="Main navigation">
+    <button type="button" class="nav-item active" data-go="home"><span class="ni-ic"><i data-icon="home" data-size="22"></i></span><span class="ni-label">Home</span></button>
+    <button type="button" class="nav-item" data-go="planner"><span class="ni-ic"><i data-icon="compass" data-size="22"></i></span><span class="ni-label">Explore</span></button>
+    <button type="button" class="nav-item" data-go="charging"><span class="ni-ic"><i data-icon="zap" data-size="22"></i></span><span class="ni-label">Charging</span></button>
+    <button type="button" class="nav-item" data-go="history"><span class="ni-ic"><i data-icon="history" data-size="22"></i></span><span class="ni-label">History</span></button>
+    <button type="button" class="nav-item" data-go="profile"><span class="ni-ic"><i data-icon="user" data-size="22"></i></span><span class="ni-label">Profile</span></button>
+  </nav>
+
+  <div id="sheet-root"></div>
+  <div id="dialog-root"></div>
+  <div id="toast-root" aria-live="polite"></div>
+</div>
+</div>
+
+<script src="js/icons.js"></script>
+<script src="js/data.js"></script>
+<script src="js/ui.js"></script>
+<script src="js/app.js"></script>
+<script src="js/api.js"></script>
+<script src="js/location.js"></script>
+<script src="js/map.js"></script>
+<script src="js/navigation.js"></script>
+<script src="js/auth.js"></script>
+<script src="js/dashboard.js"></script>
+<script src="js/vehicles.js"></script>
+<script src="js/routes.js"></script>
+<script src="js/tracking.js"></script>
+<script src="js/charging.js"></script>
+<script src="js/analytics.js"></script>
+<script src="js/profile.js"></script>
+</body>
+</html>

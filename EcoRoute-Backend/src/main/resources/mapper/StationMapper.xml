@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ecoroute.station.StationMapper">
+
+  <select id="findAll" resultType="com.ecoroute.station.Station">
+    SELECT id, name, area, x, y, connectors, kw, total_ports AS totalPorts, free_ports AS freePorts, seed_free AS seedFree
+    FROM charging_stations
+    ORDER BY name
+  </select>
+
+  <update id="updateFree">
+    UPDATE charging_stations SET free_ports = #{free} WHERE id = #{id}
+  </update>
+
+</mapper>

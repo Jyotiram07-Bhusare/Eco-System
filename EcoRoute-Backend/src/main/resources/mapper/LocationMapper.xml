@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<!-- Real-time location pings. -->
+<mapper namespace="com.ecoroute.location.LocationMapper">
+
+  <!-- one multi-row INSERT for the whole batch -->
+  <insert id="insertBatch">
+    INSERT INTO location_points (user_id, session_id, lat, lon, accuracy_m, speed_mps, heading_deg, recorded_at)
+    VALUES
+    <foreach collection="points" item="p" separator=",">
+      (#{p.userId}, #{p.sessionId}, #{p.lat}, #{p.lon}, #{p.accuracyM}, #{p.speedMps}, #{p.headingDeg}, #{p.recordedAt})
+    </foreach>
+  </insert>
+
+  <update id="attachToJourney">
+    UPDATE location_points
+    SET journey_id = #{journeyId}
+    WHERE user_id = #{userId} AND session_id = #{sessionId} AND journey_id IS NULL
+  </update>
+
+  <select id="findByJourney" resultType="com.ecoroute.location.LocationPoint">
+    SELECT id, user_id AS userId, journey_id AS journeyId, session_id AS sessionId, lat, lon,
+           accuracy_m AS accuracyM, speed_mps AS speedMps, heading_deg AS headingDeg, recorded_at AS recordedAt
+    FROM location_points
+    WHERE user_id = #{userId} AND journey_id = #{journeyId}
+    ORDER BY recorded_at, id
+    LIMIT #{limit}
+  </select>
+
+  <select id="countByUser" resultType="long">
+    SELECT COUNT(*) FROM location_points WHERE user_id = #{userId}
+  </select>
+
+  <delete id="deleteByUser">
+    DELETE FROM location_points WHERE user_id = #{userId}
+  </delete>
+
+  <delete id="deleteOlderThan">
+    DELETE FROM location_points WHERE recorded_at &lt; #{before}
+  </delete>
+
+</mapper>

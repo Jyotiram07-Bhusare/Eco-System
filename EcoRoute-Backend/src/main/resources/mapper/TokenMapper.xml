@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<!-- Login tokens (only the SHA-256 hash of a token is ever stored). -->
+<mapper namespace="com.ecoroute.auth.TokenMapper">
+
+  <insert id="insert">
+    INSERT INTO auth_tokens (token_hash, user_id, created_at, expires_at, last_used_at, user_agent)
+    VALUES (#{hash}, #{userId}, #{createdAt}, #{expiresAt}, #{createdAt}, #{userAgent})
+  </insert>
+
+  <select id="findValid" resultType="com.ecoroute.auth.TokenMapper$TokenRow">
+    SELECT user_id AS userId, last_used_at AS lastUsedAt
+    FROM auth_tokens
+    WHERE token_hash = #{hash} AND expires_at &gt; #{now}
+  </select>
+
+  <update id="touch">
+    UPDATE auth_tokens SET last_used_at = #{now} WHERE token_hash = #{hash}
+  </update>
+
+  <delete id="delete">
+    DELETE FROM auth_tokens WHERE token_hash = #{hash}
+  </delete>
+
+  <delete id="deleteExpired">
+    DELETE FROM auth_tokens WHERE expires_at &lt;= #{now}
+  </delete>
+
+</mapper>

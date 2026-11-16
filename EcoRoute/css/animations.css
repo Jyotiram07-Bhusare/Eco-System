@@ -1,0 +1,71 @@
+/* ==========================================================================
+   EcoRoute - animations.css
+   Screen transitions, splash, rings, map pulses and micro-interactions.
+   Kept deliberately small and subtle; everything respects reduced-motion.
+   ========================================================================== */
+
+/* ------------------------------------------------ screen transitions */
+.screen.enter-forward { animation: enterForward .36s var(--ease) both; z-index: 2; }
+.screen.exit-forward  { animation: exitForward .36s var(--ease) both; pointer-events: none; z-index: 1; }
+.screen.enter-back    { animation: enterBack .36s var(--ease) both; z-index: 1; }
+.screen.exit-back     { animation: exitBack .36s var(--ease) both; pointer-events: none; z-index: 2; }
+.screen.enter-fade    { animation: fadeIn .3s ease both; z-index: 2; }
+.screen.exit-fade     { animation: fadeOut .22s ease both; pointer-events: none; z-index: 1; }
+
+@keyframes enterForward { from { transform: translateX(34px); opacity: 0; } to { transform: none; opacity: 1; } }
+@keyframes exitForward  { from { transform: none; opacity: 1; } to { transform: translateX(-22%); opacity: 0; } }
+@keyframes enterBack    { from { transform: translateX(-22%); opacity: 0; } to { transform: none; opacity: 1; } }
+@keyframes exitBack     { from { transform: none; opacity: 1; } to { transform: translateX(34px); opacity: 0; } }
+@keyframes fadeIn  { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+@keyframes fadeOut { from { opacity: 1; } to { opacity: 0; } }
+
+/* ------------------------------------------------ generic */
+@keyframes fadeUp { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
+.fade-up { animation: fadeUp .5s var(--ease) both; animation-delay: var(--d, 0s); }
+
+@keyframes pop { 0% { transform: scale(.5); opacity: 0; } 60% { transform: scale(1.12); opacity: 1; } 100% { transform: scale(1); } }
+@keyframes shake { 0%, 100% { transform: translateX(0); } 20% { transform: translateX(-7px); } 40% { transform: translateX(6px); } 60% { transform: translateX(-4px); } 80% { transform: translateX(3px); } }
+@keyframes shimmer { to { transform: translateX(100%); } }
+@keyframes floaty { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-8px); } }
+@keyframes drift { from { transform: translate(0, 0) scale(1); } to { transform: translate(-24px, 18px) scale(1.08); } }
+@keyframes pulse { 0% { transform: scale(.6); opacity: .45; } 100% { transform: scale(2.4); opacity: 0; } }
+@keyframes spin { to { transform: rotate(360deg); } }
+.spin { animation: spin .9s linear infinite; }
+
+/* ------------------------------------------------ splash */
+@keyframes logoIn { from { opacity: 0; transform: scale(.6) rotate(-8deg); } to { opacity: 1; transform: none; } }
+@keyframes loadBar { 0% { width: 0; } 55% { width: 62%; } 100% { width: 100%; } }
+
+/* ------------------------------------------------ onboarding art */
+@keyframes draw { to { stroke-dashoffset: 0; } }
+@keyframes gauge { to { stroke-dashoffset: 33; } }
+@keyframes barUp { from { transform: scaleY(.1); opacity: 0; } to { transform: scaleY(1); opacity: 1; } }
+
+/* ------------------------------------------------ score ring */
+@keyframes ringIn { from { stroke-dashoffset: var(--circ); } to { stroke-dashoffset: var(--off); } }
+
+/* ------------------------------------------------ list stagger helper (set --d inline) */
+.stagger > * { animation: fadeUp .45s var(--ease) both; animation-delay: calc(var(--i, 0) * 45ms); }
+
+/* ------------------------------------------------ live navigation */
+.nav-banner.pulse-once { animation: bannerPulse .6s var(--ease); }
+@keyframes bannerPulse { 0% { transform: scale(1); } 40% { transform: scale(1.03); } 100% { transform: scale(1); } }
+.bump { animation: bump .35s var(--ease); }
+@keyframes bump { 0% { transform: scale(1); } 40% { transform: scale(1.12); } 100% { transform: scale(1); } }
+
+/* ------------------------------------------------ bar chart grow-in */
+.ch-bar { transform-box: fill-box; transform-origin: bottom; animation: barGrow .6s var(--ease) both; animation-delay: calc(var(--i, 0) * 35ms); }
+@keyframes barGrow { from { transform: scaleY(0); } to { transform: scaleY(1); } }
+.ch-line-draw { stroke-dasharray: var(--len, 600); stroke-dashoffset: var(--len, 600); animation: draw 1.1s .1s var(--ease) forwards; }
+
+/* ------------------------------------------------ reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: .01ms !important;
+    animation-iteration-count: 1 !important;
+    animation-delay: 0s !important;
+    transition-duration: .01ms !important;
+    scroll-behavior: auto !important;
+  }
+  .loader-bar { width: 100%; }
+}

@@ -1,0 +1,24 @@
+# build output
+**/target/
+**/build/
+**/dist/
+**/logs/
+*.log
+
+# local settings and secrets (never commit)
+EcoRoute-Backend/config/application.properties
+*.jks
+*.keystore
+*.p12
+*.pem
+.env
+.env.*
+local.properties
+
+# tools / IDE / OS
+node_modules/
+.idea/
+.vscode/
+*.iml
+.DS_Store
+Thumbs.db

@@ -1,0 +1,30 @@
+{
+  "name": "EcoRoute – Smart Eco-Friendly Navigation",
+  "short_name": "EcoRoute",
+  "description": "Compare routes by CO₂, track simulated journeys and find EV charging stations. Travel Smarter. Drive Greener. Live Better.",
+  "id": "./",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "display_override": ["standalone", "minimal-ui"],
+  "orientation": "portrait",
+  "background_color": "#237B50",
+  "theme_color": "#237B50",
+  "lang": "en",
+  "dir": "ltr",
+  "categories": ["navigation", "travel", "lifestyle"],
+  "icons": [
+    { "src": "assets/icons/icon-96.png", "sizes": "96x96", "type": "image/png", "purpose": "any" },
+    { "src": "assets/icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "assets/icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "assets/icons/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" },
+    { "src": "assets/icons/favicon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }
+  ],
+  "screenshots": [
+    { "src": "assets/images/screenshot-home.png", "sizes": "780x1688", "type": "image/png", "form_factor": "narrow", "label": "Home dashboard with destination search, vehicle and impact summary" },
+    { "src": "assets/images/screenshot-routes.png", "sizes": "780x1688", "type": "image/png", "form_factor": "narrow", "label": "Compare shortest, fastest and eco-friendly routes" },
+    { "src": "assets/images/screenshot-navigation.png", "sizes": "780x1688", "type": "image/png", "form_factor": "narrow", "label": "Live navigation with simulated GPS and CO2 tracking" },
+    { "src": "assets/images/screenshot-charging.png", "sizes": "780x1688", "type": "image/png", "form_factor": "narrow", "label": "EV charging station finder" },
+    { "src": "assets/images/screenshot-analytics.png", "sizes": "780x1688", "type": "image/png", "form_factor": "narrow", "label": "Eco analytics with weekly and monthly charts" }
+  ]
+}

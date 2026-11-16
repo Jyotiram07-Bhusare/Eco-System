@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ecoroute.journey.JourneyMapper">
+
+  <sql id="journeyColumns">
+    id, user_id AS userId, client_ref AS clientRef, from_id AS fromId, to_id AS toId, from_name AS fromName,
+    to_name AS toName, vehicle_id AS vehicleId, vehicle_type AS vehicleType, vehicle_label AS vehicleLabel,
+    route_kind AS routeKind, source, started_at AS startedAt, distance_km AS distanceKm,
+    duration_min AS durationMin, co2_g AS co2G, saved_g AS savedG, eco_score AS ecoScore, status,
+    start_lat AS startLat, start_lon AS startLon, start_address AS startAddress, end_lat AS endLat, end_lon AS endLon
+  </sql>
+
+  <select id="findByUser" resultType="com.ecoroute.journey.Journey">
+    SELECT <include refid="journeyColumns"/>
+    FROM journeys
+    WHERE user_id = #{userId}
+    ORDER BY started_at DESC, id DESC
+    LIMIT #{limit}
+  </select>
+
+  <select id="findOwned" resultType="com.ecoroute.journey.Journey">
+    SELECT <include refid="journeyColumns"/> FROM journeys WHERE user_id = #{userId} AND id = #{id}
+  </select>
+
+  <select id="findByClientRef" resultType="com.ecoroute.journey.Journey">
+    SELECT <include refid="journeyColumns"/> FROM journeys WHERE user_id = #{userId} AND client_ref = #{clientRef}
+  </select>
+
+  <insert id="insert" useGeneratedKeys="true" keyProperty="key.id">
+    INSERT INTO journeys (
+      user_id, client_ref, from_id, to_id, from_name, to_name, vehicle_id, vehicle_type, vehicle_label,
+      route_kind, source, started_at, distance_km, duration_min, co2_g, saved_g, eco_score, status,
+      start_lat, start_lon, start_address, end_lat, end_lon)
+    VALUES (
+      #{j.userId}, #{j.clientRef}, #{j.fromId}, #{j.toId}, #{j.fromName}, #{j.toName}, #{j.vehicleId},
+      #{j.vehicleType}, #{j.vehicleLabel}, #{j.routeKind}, #{j.source}, #{j.startedAt}, #{j.distanceKm},
+      #{j.durationMin}, #{j.co2G}, #{j.savedG}, #{j.ecoScore}, #{j.status},
+      #{j.startLat}, #{j.startLon}, #{j.startAddress}, #{j.endLat}, #{j.endLon})
+  </insert>
+
+  <delete id="deleteByUser">
+    DELETE FROM journeys WHERE user_id = #{userId}
+  </delete>
+
+</mapper>

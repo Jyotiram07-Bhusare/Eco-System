@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="64 80 384 384" role="img" aria-label="EcoRoute mark">
+  <path d="M112 404 C 170 440 250 440 320 410" fill="none" stroke="#fff" stroke-opacity=".6" stroke-width="16" stroke-linecap="round" stroke-dasharray="2 34"/>
+  <path d="M142 358 C 128 236 214 128 378 132 C 388 290 304 392 142 358 Z" fill="#fff"/>
+  <path d="M168 336 L 304 206" fill="none" stroke="#237B50" stroke-width="16" stroke-linecap="round"/>
+  <path d="M236 270 L 232 214 M268 240 L 322 244" fill="none" stroke="#237B50" stroke-width="12" stroke-linecap="round" stroke-opacity=".8"/>
+  <circle cx="352" cy="404" r="26" fill="#fff"/>
+  <circle cx="352" cy="404" r="11" fill="#237B50"/>
+</svg>
