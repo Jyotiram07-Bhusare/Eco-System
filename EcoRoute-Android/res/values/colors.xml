@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- the EcoRoute green (same as the web app's theme colour) -->
+    <color name="brand">#237B50</color>
+    <color name="brand_dark">#1B6040</color>
+</resources>

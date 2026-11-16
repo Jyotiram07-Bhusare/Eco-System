@@ -192,7 +192,7 @@ window.Eco = window.Eco || {};
       html:
         '<div class="about-hero"><img src="assets/logo/logo.svg" alt="" width="72" height="72"><h2>EcoRoute</h2><p class="muted">Version 1.1.0 · Demo build</p><p style="margin-top:6px"><b>Travel Smarter. Drive Greener. Live Better.</b></p></div>' +
         '<div class="about-list">' +
-        '<div class="row">' + ui.icon('info', 18) + '<span><b>The city is simulated.</b> The map, routes, travel times, charging availability and CO₂ figures are sample data' + (server ? ', although they are stored in your database.' : '. Nothing is sent to a server.') + '</span></div>' +
+        '<div class="row">' + ui.icon('map', 18) + '<span><b>The map and routes are real.</b> The map is OpenStreetMap, places come from Nominatim and routes from the OSRM routing service (free public services). Travel times have no live traffic, charger data comes from OpenStreetMap volunteers and has no live availability, and CO₂ figures are estimates.</span></div>' +
         '<div class="row">' + ui.icon('locate-fixed', 18) + '<span><b>Your location is real.</b> The Home screen shows where your device is (the browser’s location sensor, if you allow it). ' +
         (server
           ? 'While “Save my location history” is on, positions and the street address are kept in your database, and the server looks the address up with OpenStreetMap. Turn it off or delete the history any time in Profile.'
@@ -221,8 +221,7 @@ window.Eco = window.Eco || {};
       if (!server) {
         var s = Eco.store.state, keep = { loggedIn: true, onboarded: true, user: s.user };
         Eco.store.reset(); Eco.store.load();
-        Object.assign(Eco.store.state, keep); Eco.store.save();
-        Eco.data.stations.forEach(function (st) { st.free = st.sampleFree; });
+        Object.assign(Eco.store.state, keep); Eco.store.loadSample();
         Eco.theme.apply(); Eco.resetTrip(); render();
         ui.toast('Demo data restored', 'success');
         return;

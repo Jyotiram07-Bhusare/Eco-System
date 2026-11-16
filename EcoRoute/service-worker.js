@@ -1,7 +1,7 @@
 /* ==========================================================================
    EcoRoute - service-worker.js
-   Offline-first app shell. Everything the app itself needs is local (no CDNs),
-   so once installed it opens offline and runs on its sample data.
+   App shell cache. Every file the app itself needs is local (no CDNs), so once installed it opens
+   offline. Maps, routes, search and chargers still need the internet (those requests are never cached here).
 
    Strategy: stale-while-revalidate for same-origin GETs of the app shell. Cached
    copy is served instantly, then refreshed in the background. Requests to the
@@ -11,7 +11,7 @@
    ========================================================================== */
 'use strict';
 
-const VERSION = 'ecoroute-v1.1.0';
+const VERSION = 'ecoroute-v1.2.1';
 
 const SHELL = [
   './',
@@ -20,12 +20,16 @@ const SHELL = [
   './css/style.css',
   './css/responsive.css',
   './css/animations.css',
+  './assets/vendor/leaflet/leaflet.css',
+  './assets/vendor/leaflet/leaflet.js',
+  './js/config.js',
   './js/icons.js',
   './js/data.js',
   './js/ui.js',
   './js/app.js',
   './js/api.js',
   './js/location.js',
+  './js/geo.js',
   './js/map.js',
   './js/navigation.js',
   './js/auth.js',

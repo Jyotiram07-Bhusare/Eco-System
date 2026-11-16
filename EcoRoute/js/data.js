@@ -1,35 +1,11 @@
 /* ==========================================================================
    EcoRoute - data.js
-   All demo content lives here: places, vehicle types, charging stations,
-   emission maths and the seeded journey history.
-
-   EVERYTHING IN THIS FILE IS SIMULATED SAMPLE DATA. There is no real GPS,
-   routing engine, charger-availability feed or carbon sensor behind it.
+   Vehicle types, the emission maths and the SAMPLE journey history used by the demo account.
+   (Places, routes and charging stations are real now: see geo.js.)
    ========================================================================== */
 window.Eco = window.Eco || {};
 (function () {
   'use strict';
-
-  /* ---------- Map world (stylised city, abstract units) ---------- */
-  var WORLD = { w: 1200, h: 1600, grid: 100, kmPerUnit: 0.0085 };
-
-  /* ---------- Places (every one sits on a road intersection) ---------- */
-  var places = [
-    { id: 'green-park',        name: 'Green Park',            area: 'Sector 4 · Residential',   type: 'home',      icon: 'home',           x: 300,  y: 1000 },
-    { id: 'central-station',   name: 'City Central Station',  area: 'Transit hub',               type: 'transit',   icon: 'route',          x: 600,  y: 800  },
-    { id: 'lakeside-mall',     name: 'Lakeside Mall',         area: 'Shopping · East side',      type: 'mall',      icon: 'shopping-bag',   x: 900,  y: 500  },
-    { id: 'tech-park',         name: 'Tech Park Phase 2',     area: 'Business district',         type: 'work',      icon: 'briefcase',      x: 1000, y: 1200 },
-    { id: 'riverside-college', name: 'Riverside College',     area: 'Education · West side',     type: 'college',   icon: 'graduation-cap', x: 200,  y: 400  },
-    { id: 'maple-heights',     name: 'Maple Heights',         area: 'Residential · South',       type: 'home',      icon: 'building',       x: 500,  y: 1400 },
-    { id: 'sunrise-hospital',  name: 'Sunrise Hospital',      area: 'Healthcare',                type: 'hospital',  icon: 'hospital',       x: 800,  y: 1000 },
-    { id: 'old-town',          name: 'Old Town Market',       area: 'Heritage quarter',          type: 'market',    icon: 'map-pin',        x: 400,  y: 600  },
-    { id: 'skyline-airport',   name: 'Skyline Airport T1',    area: 'Airport · North-east',      type: 'airport',   icon: 'plane',          x: 1000, y: 200  },
-    { id: 'botanical-gardens', name: 'Botanical Gardens',     area: 'Park · North',              type: 'park',      icon: 'trees',          x: 700,  y: 300  },
-    { id: 'eco-stadium',       name: 'Eco Stadium',           area: 'Sports complex',            type: 'stadium',   icon: 'trophy',         x: 200,  y: 1300 },
-    { id: 'promenade',         name: 'Riverside Promenade',   area: 'Waterfront',                type: 'park',      icon: 'waves',          x: 600,  y: 1000 }
-  ];
-
-  var currentLocation = { id: 'current', name: 'Current Location', area: 'Green Park, Sector 4', type: 'current', icon: 'locate-fixed', x: 300, y: 1000, current: true };
 
   /* ---------- Vehicle types ---------- */
   var CO2_PER_LITRE = { Petrol: 2310, Diesel: 2680 };   // g CO2 per litre burned
@@ -61,45 +37,18 @@ window.Eco = window.Eco || {};
 
   function genericVehicle(typeId) { return makeVehicle({ id: 'generic-' + typeId, type: typeId, generic: true }); }
 
+  /** The demo account's garage (a new account starts with an empty one). */
   var seedGarage = [
     { id: 'veh-nexon',  type: 'electric-car', company: 'Tata',   model: 'Nexon EV',   battery: 40.5, range: 312 },
     { id: 'veh-activa', type: 'petrol-bike',  company: 'Honda',  model: 'Activa 6G',  mileage: 50,   range: 480 },
     { id: 'veh-city',   type: 'petrol-car',   company: 'Honda',  model: 'City',       mileage: 17,   range: 680 }
   ];
 
-  /* ---------- EV charging stations (SAMPLE DATA) ---------- */
-  var stations = [
-    { id: 'st-volthub',    name: 'VoltHub Central',          x: 600,  y: 850,  connectors: ['CCS2', 'Type 2'],            kw: 60,  total: 6,  free: 4,  area: 'City Central' },
-    { id: 'st-lakeside',   name: 'GreenCharge Lakeside',     x: 850,  y: 500,  connectors: ['CCS2', 'CHAdeMO'],           kw: 50,  total: 4,  free: 1,  area: 'Lakeside Mall' },
-    { id: 'st-techpark',   name: 'EcoPlug Tech Park',        x: 1000, y: 1150, connectors: ['CCS2'],                      kw: 120, total: 8,  free: 6,  area: 'Tech Park' },
-    { id: 'st-oldtown',    name: 'ChargeNest Old Town',      x: 400,  y: 650,  connectors: ['Type 2', '3-Pin AC'],        kw: 22,  total: 4,  free: 0,  area: 'Old Town' },
-    { id: 'st-sunrise',    name: 'Sunrise EV Bay',           x: 750,  y: 1000, connectors: ['Type 2', '3-Pin AC'],        kw: 7,   total: 6,  free: 5,  area: 'Sunrise Hospital' },
-    { id: 'st-highway',    name: 'RapidVolt Highway Plaza',  x: 1100, y: 750,  connectors: ['CCS2', 'CHAdeMO'],           kw: 120, total: 10, free: 7,  area: 'Ring Road East' },
-    { id: 'st-maple',      name: 'Maple EV Point',           x: 500,  y: 1350, connectors: ['Type 2'],                    kw: 22,  total: 2,  free: 2,  area: 'Maple Heights' },
-    { id: 'st-airport',    name: 'Skyline Airport Fast Hub', x: 950,  y: 200,  connectors: ['CCS2', 'CHAdeMO', 'Type 2'], kw: 150, total: 12, free: 3,  area: 'Airport T1' },
-    { id: 'st-riverside',  name: 'Riverside Quick Charge',   x: 200,  y: 450,  connectors: ['Type 2', 'CCS2'],            kw: 30,  total: 4,  free: 2,  area: 'Riverside College' },
-    { id: 'st-stadium',    name: 'Stadium Charge Hub',       x: 250,  y: 1300, connectors: ['CCS2', 'Type 2'],            kw: 60,  total: 6,  free: 0,  area: 'Eco Stadium' },
-    { id: 'st-community',  name: 'Green Park Community',     x: 350,  y: 1000, connectors: ['Type 2', '3-Pin AC'],        kw: 7,   total: 3,  free: 2,  area: 'Green Park' },
-    { id: 'st-botanical',  name: 'Botanical Eco Point',      x: 700,  y: 350,  connectors: ['Type 2', 'CCS2'],            kw: 50,  total: 4,  free: 3,  area: 'Botanical Gardens' }
-  ];
-  stations.forEach(function (s) { s.type = 'station'; s.icon = 'zap'; s.sampleFree = s.free; });
-
-  /** Swap in the stations stored in the database. The same array object is kept, so every reference to it stays valid. */
-  function setStations(list) {
-    if (!Array.isArray(list) || !list.length) return;
-    stations.length = 0;
-    list.forEach(function (s) {
-      s.type = 'station'; s.icon = 'zap';
-      if (s.sampleFree == null) s.sampleFree = s.free;
-      stations.push(s);
-    });
-  }
-
   /* ---------- Misc ---------- */
   var routeKinds = {
-    shortest: { id: 'shortest', title: 'Shortest Route', via: 'via City Centre',    note: 'Fewest kilometres, but stop-and-go traffic.', speed: 26, flow: 1.18, signals: 22 },
-    fastest:  { id: 'fastest',  title: 'Fastest Route',  via: 'via Ring Road',      note: 'Longer, but keeps moving at higher speed.',    speed: 43, flow: 1.08, signals: 6  },
-    eco:      { id: 'eco',      title: 'Eco Route',      via: 'via Green Corridor', note: 'Steady speeds, fewer stops, tree-lined roads.', speed: 34, flow: 0.86, signals: 9  }
+    shortest: { id: 'shortest', title: 'Shortest Route' },
+    fastest:  { id: 'fastest',  title: 'Fastest Route' },
+    eco:      { id: 'eco',      title: 'Eco Route' }
   };
 
   var ecoTips = [
@@ -113,7 +62,7 @@ window.Eco = window.Eco || {};
 
   var notifications = [
     { id: 1, icon: 'leaf',   title: 'Weekly eco report is ready', text: 'You saved 2.4 kg CO₂ compared with an average petrol car.', time: '2h ago',  unread: true  },
-    { id: 2, icon: 'zap',    title: 'Charger freed up nearby',    text: 'ChargeNest Old Town now shows ports available (sample).',        time: '5h ago',  unread: true  },
+    { id: 2, icon: 'zap',    title: 'Charging stations near you', text: 'Open the Charging tab to see EV chargers around you.',            time: '5h ago',  unread: true  },
     { id: 3, icon: 'award',  title: 'Badge unlocked: Green Streak', text: 'Five eco-friendly journeys in a row. Nice driving!',          time: 'Yesterday', unread: false },
     { id: 4, icon: 'sparkles', title: 'Tip of the day',           text: 'Pre-cool your EV while plugged in to save range.',              time: '2 days ago', unread: false }
   ];
@@ -133,20 +82,10 @@ window.Eco = window.Eco || {};
     scoreLabel: function (s) { return s >= 85 ? 'Excellent' : s >= 70 ? 'Great' : s >= 55 ? 'Good' : s >= 40 ? 'Fair' : 'Poor'; },
     scoreTone: function (s) { return s >= 70 ? 'green' : s >= 45 ? 'amber' : 'red'; },
     /** Range left (km) for an EV at a battery percentage. */
-    rangeLeft: function (vehicle, pct) { return Math.round((vehicle.range || 0) * pct / 100); },
-    /** Straight-line map distance converted to a road-ish km figure. */
-    mapKm: function (a, b) { return Math.hypot(a.x - b.x, a.y - b.y) * WORLD.kmPerUnit * 1.3; }
+    rangeLeft: function (vehicle, pct) { return Math.round((vehicle.range || 0) * pct / 100); }
   };
 
-  /* ---------- Helpers ---------- */
-  function findPlace(id) {
-    if (id === 'current') return currentLocation;
-    var i, all = places.concat(stations);
-    for (i = 0; i < all.length; i++) if (all[i].id === id) return all[i];
-    return null;
-  }
-
-  /** Deterministic PRNG so the seeded history is stable. */
+  /** Deterministic PRNG so the sample history is stable. */
   function mulberry32(a) {
     return function () {
       a |= 0; a = a + 0x6D2B79F5 | 0;
@@ -156,29 +95,26 @@ window.Eco = window.Eco || {};
     };
   }
 
+  var SAMPLE_PLACES = ['Home', 'Office', 'City Mall', 'Central Station', 'Sunrise Hospital', 'Riverside College', 'Airport', 'Old Town Market', 'Botanical Gardens', 'Eco Stadium', 'Tech Park', 'Promenade'];
+
   /**
-   * Build ~5 months of believable journeys for the demo account: roughly 0-3 trips a day,
-   * fewer at weekends, spread evenly (so week-on-week and month-on-month figures are sensible).
+   * About five months of believable SAMPLE journeys for the demo account: roughly 0-3 trips a day, fewer at weekends.
+   * They have place names but no map position (they are samples, not trips anyone really made); sample: true marks them.
    */
   function seedJourneys(garage) {
     var rnd = mulberry32(20260316);
     var out = [], now = Date.now(), day, k, seq = 0;
     var HOURS = [7, 8, 9, 10, 12, 13, 15, 17, 18, 19, 20];
-    var pool = places.filter(function (p) { return p.id !== 'green-park'; });
-    var vehiclePick = [
-      ['veh-nexon', 0.38], ['veh-activa', 0.24], ['veh-city', 0.20], ['generic-electric-bike', 0.10], ['generic-diesel-car', 0.08]
-    ];
+    var vehiclePick = [['veh-nexon', 0.38], ['veh-activa', 0.24], ['veh-city', 0.20], ['generic-electric-bike', 0.10], ['generic-diesel-car', 0.08]];
     var vehicles = {};
     garage.forEach(function (v) { vehicles[v.id] = v; });
     vehicles['generic-electric-bike'] = genericVehicle('electric-bike');
     vehicles['generic-diesel-car'] = genericVehicle('diesel-car');
-
     function pickVehicle() {
-      var r = rnd(), acc = 0, k;
-      for (k = 0; k < vehiclePick.length; k++) { acc += vehiclePick[k][1]; if (r <= acc) return vehicles[vehiclePick[k][0]]; }
-      return vehicles['veh-nexon'];
+      var r = rnd(), acc = 0, i;
+      for (i = 0; i < vehiclePick.length; i++) { acc += vehiclePick[i][1]; if (r <= acc && vehicles[vehiclePick[i][0]]) return vehicles[vehiclePick[i][0]]; }
+      return vehicles['generic-electric-bike'];
     }
-
     for (day = 0; day < 150; day++) {
       var base = new Date(now - day * 86400000);
       var dow = base.getDay(), weekend = dow === 0 || dow === 6, r = rnd();
@@ -188,24 +124,21 @@ window.Eco = window.Eco || {};
         var d = new Date(base);
         d.setHours(HOURS[Math.floor(rnd() * HOURS.length)], Math.floor(rnd() * 60), 0, 0);
         if (d.getTime() > now - 20 * 60000) continue;        // never in the future
-        var home = rnd() < 0.55;
-        var a = home ? places[0] : pool[Math.floor(rnd() * pool.length)];
-        var b = pool[Math.floor(rnd() * pool.length)];
-        if (a.id === b.id) b = pool[(pool.indexOf(b) + 3) % pool.length];
-        if (rnd() < 0.3) { var t = a; a = b; b = t; }
+        var a = rnd() < 0.55 ? 'Home' : SAMPLE_PLACES[1 + Math.floor(rnd() * (SAMPLE_PLACES.length - 1))];
+        var b = SAMPLE_PLACES[1 + Math.floor(rnd() * (SAMPLE_PLACES.length - 1))];
+        if (a === b) b = SAMPLE_PLACES[1 + (SAMPLE_PLACES.indexOf(b) + 3) % (SAMPLE_PLACES.length - 1)];
         var veh = pickVehicle();
-        var kindR = rnd();
-        var kind = kindR < 0.5 ? 'eco' : kindR < 0.75 ? 'fastest' : 'shortest';
-        var m = Eco.geo.routeMetrics(a, b, kind, veh);
-        var early = rnd() < 0.06;
-        var frac = early ? 0.35 + rnd() * 0.4 : 1;
-        var dist = +(m.distanceKm * frac).toFixed(1);
-        var co2 = Math.round(m.co2g * frac);
+        var kindR = rnd(), kind = kindR < 0.5 ? 'eco' : kindR < 0.75 ? 'fastest' : 'shortest';
+        var early = rnd() < 0.06, frac = early ? 0.35 + rnd() * 0.4 : 1;
+        var km = 1.2 + Math.pow(rnd(), 1.6) * 17;
+        var speed = (kind === 'shortest' ? 26 : kind === 'eco' ? 34 : 43) * (0.94 + 0.12 * rnd());
+        var flow = (kind === 'shortest' ? 1.18 : kind === 'eco' ? 0.86 : 1.08) * (0.97 + 0.06 * rnd());
+        var dist = +Math.max(0.2, km * frac).toFixed(1), co2 = Math.round(dist * veh.gPerKm * flow);
         out.push({
-          id: 'j' + (1000 + seq++), fromId: a.id, toId: b.id, from: a.name, to: b.name,
-          vehicleId: veh.id, vehicleType: veh.type, vehicleLabel: veh.label, routeKind: kind,
-          date: d.toISOString(), distanceKm: dist, durationMin: Math.max(3, Math.round(m.timeMin * frac)),
-          co2g: co2, savedG: calc.carbonSaved(dist, co2), ecoScore: m.ecoScore,
+          id: 'j' + (1000 + seq++), fromId: 'sample', toId: 'sample', from: a, to: b,
+          vehicleId: veh.id, vehicleType: veh.type, vehicleLabel: veh.label, routeKind: kind, sample: true,
+          date: d.toISOString(), distanceKm: dist, durationMin: Math.max(3, Math.round(dist / speed * 60)),
+          co2g: co2, savedG: calc.carbonSaved(dist, co2), ecoScore: calc.ecoScore(co2 / Math.max(dist, 0.1)),
           status: early ? 'ended-early' : 'completed'
         });
       }
@@ -215,9 +148,8 @@ window.Eco = window.Eco || {};
   }
 
   Eco.data = {
-    WORLD: WORLD, places: places, currentLocation: currentLocation, vehicleTypes: vehicleTypes, seedGarage: seedGarage,
-    stations: stations, routeKinds: routeKinds, ecoTips: ecoTips, notifications: notifications,
-    makeVehicle: makeVehicle, genericVehicle: genericVehicle, findPlace: findPlace, seedJourneys: seedJourneys, setStations: setStations,
+    vehicleTypes: vehicleTypes, seedGarage: seedGarage, routeKinds: routeKinds, ecoTips: ecoTips, notifications: notifications,
+    makeVehicle: makeVehicle, genericVehicle: genericVehicle, seedJourneys: seedJourneys,
     CO2_PER_LITRE: CO2_PER_LITRE, GRID_G_PER_WH: GRID_G_PER_WH
   };
   Eco.calc = calc;

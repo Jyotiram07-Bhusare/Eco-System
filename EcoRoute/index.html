@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>EcoRoute – Smart Eco-Friendly Navigation</title>
-  <meta name="description" content="EcoRoute: compare routes by CO₂ emissions, track simulated journeys and find EV charging stations. Travel Smarter. Drive Greener. Live Better.">
+  <meta name="description" content="EcoRoute: compare routes by CO₂ emissions, plan routes on a real map, track journeys and find EV charging stations. Travel Smarter. Drive Greener. Live Better.">
   <meta name="theme-color" content="#237B50">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
@@ -19,6 +19,7 @@
   </script>
   <link rel="icon" type="image/svg+xml" href="assets/icons/favicon.svg">
   <link rel="apple-touch-icon" href="assets/icons/apple-touch-icon.png">
+  <link rel="stylesheet" href="assets/vendor/leaflet/leaflet.css">
   <link rel="stylesheet" href="css/style.css">
   <link rel="stylesheet" href="css/animations.css">
   <link rel="stylesheet" href="css/responsive.css">
@@ -162,7 +163,8 @@
 
         <div class="divider"><span>or</span></div>
         <button type="button" class="btn btn-secondary btn-block" data-action="demo-login"><i data-icon="sparkles" data-size="18"></i> Continue with demo account</button>
-        <p class="fine center" id="auth-note">Demo mode: no real account, server or personal data is used.</p>
+        <p class="fine center" id="auth-note">Local mode: your profile and journeys stay on this device.</p>
+        <p class="center"><button type="button" class="link-btn" data-action="set-server" id="auth-server-link">Use my own server…</button></p>
       </div>
     </section>
 
@@ -182,7 +184,6 @@
 
         <article class="card loc-card" id="home-loc">
           <div class="loc-map" id="home-map" aria-hidden="true"></div>
-          <span class="map-note" aria-hidden="true">Simulated city map</span>
           <div class="loc-info">
             <span class="loc-ic"><i data-icon="locate-fixed" data-size="20"></i></span>
             <div class="loc-text">
@@ -307,14 +308,13 @@
     <!-- ===================== 7. ROUTE PLANNER (Explore) ===================== -->
     <section id="screen-planner" class="screen planner-screen" aria-label="Route planner">
       <div id="planner-map" class="full-map"></div>
-      <span class="sim-tag"><i data-icon="info" data-size="14"></i> Simulated map</span>
       <div class="planner-top">
         <div class="card route-fields-card">
           <div class="rail" aria-hidden="true"><span class="rail-dot"></span><span class="rail-line"></span><i data-icon="map-pin" data-size="18"></i></div>
           <div class="rf-fields">
             <div class="rf-row">
               <label class="sr-only" for="planner-from">From</label>
-              <input id="planner-from" type="text" value="Current Location" readonly>
+              <input id="planner-from" type="search" placeholder="Your location" autocomplete="off" enterkeyhint="search">
               <button type="button" class="icon-btn icon-btn-sm" data-action="planner-locate" aria-label="Centre on my location"><i data-icon="locate-fixed" data-size="18"></i></button>
             </div>
             <div class="rf-row">
@@ -324,6 +324,7 @@
             </div>
           </div>
         </div>
+        <div class="suggest suggest-float hidden" id="planner-from-suggest" role="listbox"></div>
         <div class="suggest suggest-float hidden" id="planner-suggest" role="listbox"></div>
       </div>
       <div class="planner-panel">
@@ -343,22 +344,21 @@
         <button type="button" class="icon-btn" data-action="routes-refresh" aria-label="Recalculate routes"><i data-icon="refresh"></i></button>
       </header>
       <div class="screen-body has-nav-pad">
-        <div class="map-card"><div id="routes-map" class="mini-map"></div><span class="sim-tag sim-tag-in"><i data-icon="info" data-size="14"></i> Simulated routes</span></div>
+        <div class="map-card"><div id="routes-map" class="mini-map"></div></div>
         <div id="routes-summary" class="callout"></div>
         <div id="routes-list" class="route-list"></div>
-        <p class="fine center">Distances, times and CO₂ are simulated estimates for demonstration.</p>
+        <p class="fine center">Times are estimates without live traffic. CO₂ figures are estimates for your vehicle.</p>
       </div>
     </section>
 
     <!-- ===================== 9. LIVE NAVIGATION ===================== -->
     <section id="screen-navigation" class="screen nav-screen" aria-label="Live navigation">
       <div id="nav-map" class="full-map"></div>
-      <span class="sim-tag sim-tag-nav"><i data-icon="info" data-size="14"></i> <span id="nav-tag-text">Live GPS · simulated map</span></span>
       <div class="nav-top">
         <button type="button" class="icon-btn icon-btn-float" data-action="nav-back" aria-label="Back"><i data-icon="arrow-left"></i></button>
         <div class="nav-banner" id="nav-banner" aria-live="polite">
           <span class="nb-ic" id="nb-ic"><i data-icon="navigation-2"></i></span>
-          <div><p class="nb-main" id="nb-main">Ready to start</p><p class="nb-sub" id="nb-sub">Tap Start to begin your simulated journey</p></div>
+          <div><p class="nb-main" id="nb-main">Ready to start</p><p class="nb-sub" id="nb-sub">Tap Start to begin your journey</p></div>
         </div>
       </div>
       <div class="nav-side">
@@ -393,11 +393,11 @@
     <section id="screen-charging" class="screen" aria-label="EV charging stations">
       <div class="screen-body has-nav-pad">
         <header class="page-head">
-          <div><h1>EV Charging</h1><p class="muted">Nearby stations · <span class="badge badge-amber">Sample data</span></p></div>
+          <div><h1>EV Charging</h1><p class="muted">Nearby stations · <span class="badge badge-green">OpenStreetMap data</span></p></div>
           <button type="button" class="icon-btn" data-action="charging-refresh" aria-label="Refresh availability"><i data-icon="refresh"></i></button>
         </header>
         <article class="card battery-card" id="chg-battery"></article>
-        <div class="map-card map-card-tall" style="margin-top:14px"><div id="charging-map" class="mini-map"></div><span class="sim-tag sim-tag-in"><i data-icon="info" data-size="14"></i> Simulated map &amp; availability</span></div>
+        <div class="map-card map-card-tall" style="margin-top:14px"><div id="charging-map" class="mini-map"></div></div>
         <div class="chip-scroll" id="chg-filters" role="toolbar" aria-label="Filter stations"></div>
         <p class="muted small" id="chg-count"></p>
         <div class="list" id="chg-list"></div>
@@ -478,7 +478,7 @@
           <div id="an-rank" class="rank-list"></div>
           <div id="an-rank-table" class="chart-table hidden"></div>
         </figure>
-        <p class="fine center">Carbon saved is measured against an average petrol car (170 g CO₂/km). All figures are simulated estimates.</p>
+        <p class="fine center">Carbon saved is measured against an average petrol car (170 g CO₂/km). CO₂ figures are estimates.</p>
       </div>
     </section>
 
@@ -553,12 +553,15 @@
 </div>
 </div>
 
+<script src="assets/vendor/leaflet/leaflet.js"></script>
+<script src="js/config.js"></script>
 <script src="js/icons.js"></script>
 <script src="js/data.js"></script>
 <script src="js/ui.js"></script>
 <script src="js/app.js"></script>
 <script src="js/api.js"></script>
 <script src="js/location.js"></script>
+<script src="js/geo.js"></script>
 <script src="js/map.js"></script>
 <script src="js/navigation.js"></script>
 <script src="js/auth.js"></script>

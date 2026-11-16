@@ -6,7 +6,7 @@
    one hue per single series, thin bars with 4px rounded data-ends, hairline
    solid grid, direct label on the extreme only, crosshair/tooltip on hover AND
    keyboard focus, and a table-view twin for every chart.
-   All figures derive from the simulated journey history in the store.
+   All figures derive from the journey history in the store.
    ========================================================================== */
 window.Eco = window.Eco || {};
 (function () {

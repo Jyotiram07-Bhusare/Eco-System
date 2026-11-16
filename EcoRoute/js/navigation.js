@@ -171,9 +171,32 @@ window.Eco = window.Eco || {};
     show(target, from > histIndex ? 'back' : (isTab(target) ? 'fade' : 'forward'), null, from > histIndex);
   }
 
+  /**
+   * The Android app: its Back button asks the page first (MainActivity calls window.EcoAppBack()). Answers true when
+   * the page dealt with the press, and false when there is nothing left to go back to, so the app may close.
+   *   1. an open question ("End this journey?") or bottom sheet is closed first,
+   *   2. a screen that was opened from another one goes back to it, a tab goes back to Home
+   *      (a running journey asks "End this journey?" instead of leaving),
+   *   3. Home, and the signed-out screens (splash, intro, login), let the app close.
+   * It does not depend on the WebView's own history, so it behaves the same on a first run and after a restart.
+   */
+  window.EcoAppBack = function () {
+    var ui = Eco.ui;
+    if (document.querySelector('#dialog-root .dialog-backdrop')) { ui.closeDialogs(); return true; }
+    if (ui.hasOpenSheet()) { ui.closeAllSheets(); return true; }
+    if (!current || !loggedIn() || PUBLIC.indexOf(current) > -1 || current === 'home') return false;
+    if (!canLeave(null)) {                                       // a running journey: ask instead of leaving
+      var h = hooks[current]; if (h && h.leaveBlocked) h.leaveBlocked(null);
+      return true;
+    }
+    back();
+    return true;
+  };
+
   function init() {
     window.addEventListener('popstate', onPop);
-    // Android hardware back inside an installed PWA is delivered as popstate, handled above.
+    // Browser back and Android back inside an installed PWA arrive as popstate, handled above.
+    // (The Android app uses window.EcoAppBack instead, see above.)
   }
 
   Eco.nav = {

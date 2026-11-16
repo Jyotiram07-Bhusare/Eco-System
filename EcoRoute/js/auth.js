@@ -118,10 +118,50 @@ window.Eco = window.Eco || {};
   }
 
   function paintAuthNote(hasApi) {
-    var n = $('#auth-note');
+    var n = $('#auth-note'), srv = Eco.api.server();
     if (n) n.textContent = hasApi
-      ? 'Your account is saved in the EcoRoute database (MySQL) on this computer. Passwords are stored hashed.'
-      : 'Demo mode: no real account, server or personal data is used.';
+      ? (srv ? 'Connected to ' + srv.replace(/^https?:\/\//, '') + '. Your account is saved in that server’s database; passwords are stored hashed.'
+        : 'Your account is saved in the EcoRoute database (MySQL) on this computer. Passwords are stored hashed.')
+      : 'Local mode: your profile and journeys stay on this device. Nothing is sent to an EcoRoute server.';
+    var link = $('#auth-server-link');
+    if (link) link.classList.toggle('hidden', !!(hasApi && !srv));     // when the backend itself delivered the app there is nothing to choose
+  }
+
+  /** "Use my own server": point the app at an EcoRoute backend (Java + MySQL). Tested before it is saved. */
+  function serverSheet() {
+    var cur = Eco.api.server();
+    ui.sheet({
+      title: 'Server',
+      html:
+        '<p class="muted" style="margin-bottom:14px">By default EcoRoute keeps your profile and journeys on this device. If you run the EcoRoute backend (Java + MySQL), enter its address to keep your account and journeys in its database.</p>' +
+        '<form id="form-server" novalidate><div class="field" data-field="url"><label for="srv-url">Server address</label>' +
+        '<div class="input-wrap"><i data-icon="at-sign"></i><input id="srv-url" type="url" inputmode="url" autocomplete="off" autocapitalize="off" placeholder="https://your-server.example.com" value="' + ui.esc(cur) + '"></div>' +
+        '<p class="field-error" role="alert"></p></div>' +
+        '<div class="sheet-actions">' + (cur ? '<button type="button" class="btn btn-secondary btn-lg" id="srv-clear">This device only</button>' : '<button type="button" class="btn btn-secondary btn-lg" data-sheet-close>Cancel</button>') +
+        '<button type="submit" class="btn btn-primary btn-lg">Connect</button></div></form>',
+      onMount: function (body) {
+        var form = $('#form-server', body), clear = $('#srv-clear', body);
+        if (clear) clear.addEventListener('click', function () { Eco.api.setServer(''); location.reload(); });
+        form.addEventListener('submit', function (e) {
+          e.preventDefault();
+          var url = $('#srv-url', body).value.trim().replace(/\/+$/, '');
+          if (!/^https?:\/\/[^\s/]+/i.test(url)) { forms.setError($('[data-field="url"]', form), 'Enter an address that starts with http:// or https://'); return; }
+          forms.setError($('[data-field="url"]', form), '');
+          var ctrl = typeof AbortController === 'function' ? new AbortController() : null, timer = setTimeout(function () { if (ctrl) ctrl.abort(); }, 7000);
+          var p = fetch(url + '/api/health', { cache: 'no-store', signal: ctrl ? ctrl.signal : undefined }).then(function (r) { clearTimeout(timer); return r.json(); }).then(function (h) {
+            if (!h || h.app !== 'EcoRoute') throw new Error('not-ecoroute');
+            Eco.api.setServer(url); location.reload();
+          });
+          busy($('button[type="submit"]', form), 'Checking…', p);
+          p.catch(function (err) {
+            clearTimeout(timer);
+            forms.setError($('[data-field="url"]', form), err && err.message === 'not-ecoroute' ? 'That address answered, but it is not an EcoRoute server.'
+              : 'Can’t reach that address. Check it, that the server is running, and use https:// if this app runs on https.');
+          });
+        });
+        setTimeout(function () { $('#srv-url', body).focus(); }, 350);
+      }
+    });
   }
 
   /** The server can't be reached but this device holds a session: show the last saved data, block writes, keep trying. */
@@ -371,6 +411,7 @@ window.Eco = window.Eco || {};
         return;
       }
       simulate($('button[type="submit"]', fr), 'Creating account…', function () {
+        Eco.store.freshProfile();                                   // a new local account starts with nothing in it
         signIn({ name: r.values.name, email: r.values.email, joined: new Date().toISOString() }, 'Account created. Welcome, ' + r.values.name.split(' ')[0] + '!');
       }, 900);
     });
@@ -397,10 +438,12 @@ window.Eco = window.Eco || {};
         return;
       }
       simulate(btn, 'Loading demo…', function () {
+        Eco.store.loadSample();                                     // the demo account comes with sample vehicles and journeys
         signIn({ name: 'Alex Morgan', email: 'alex.morgan@example.com' }, 'Welcome, Alex! Demo account loaded.');
       }, 600);
     };
     ui.actions['forgot-password'] = forgotPassword;
+    ui.actions['set-server'] = serverSheet;
 
     Eco.nav.register('auth', { enter: function () { setTab('login'); paintAuthNote(Eco.api.available); } });
   }

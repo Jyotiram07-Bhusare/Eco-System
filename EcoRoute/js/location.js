@@ -37,6 +37,12 @@ window.Eco = window.Eco || {};
   function round(n, d) { var m = Math.pow(10, d); return Math.round(n * m) / m; }
   function hasOwners() { return Object.keys(owners).length > 0; }
 
+  /* the same words for a browser and for the Android app, with the right place to fix it */
+  var IN_APP = !!(window.ECOROUTE_CONFIG && window.ECOROUTE_CONFIG.app);
+  var BLOCKED = IN_APP ? 'Location is switched off for EcoRoute. Turn it on in Android Settings → Apps → EcoRoute → Permissions.' : 'Location permission is blocked for this site.';
+  var BLOCKED_TOAST = IN_APP ? 'Location is off for EcoRoute. Allow it in Android Settings → Apps → EcoRoute → Permissions.' : 'Location is blocked. Allow it in your browser’s site settings.';
+  var SERVICES_OFF = IN_APP ? 'Android Settings → Location' : 'Windows: Settings → Privacy & security → Location';
+
   function supported() { return 'geolocation' in navigator && window.isSecureContext !== false; }
   function why() {
     if (!('geolocation' in navigator)) return 'This browser has no location support.';
@@ -71,9 +77,24 @@ window.Eco = window.Eco || {};
     };
   }
 
+  /* the last position stays on this device, so maps can open near you before the first new fix arrives */
+  var LAST_KEY = 'ecoroute.lastfix', lastSaved = 0;
+  function rememberFix(f) {
+    if (Date.now() - lastSaved < 15000) return;
+    lastSaved = Date.now();
+    try { localStorage.setItem(LAST_KEY, JSON.stringify({ lat: f.lat, lon: f.lon, ts: f.ts })); } catch (e) { /* storage blocked */ }
+  }
+  /** The newest known position: the live fix, else the one remembered from last time (or null). */
+  function lastKnown() {
+    if (S.fix) return { lat: S.fix.lat, lon: S.fix.lon, ts: S.fix.ts, live: true };
+    try { var v = JSON.parse(localStorage.getItem(LAST_KEY) || 'null'); if (v && isFinite(v.lat) && isFinite(v.lon)) return v; } catch (e) { /* ignore */ }
+    return null;
+  }
+
   function onPos(pos, force) {
     var f = fromPos(pos);
     S.fix = f; S.status = 'ok'; S.error = '';
+    rememberFix(f);
     if (!canSave()) { S.address = null; S.shortName = null; S.addressFor = null; }     // history off: forget any address looked up earlier
     fixSubs.slice().forEach(function (fn) { try { fn(f, pos); } catch (e) { console.error('location listener failed', e); } });
     maybeStore(f);
@@ -85,7 +106,7 @@ window.Eco = window.Eco || {};
   function onErr(err) {
     errSubs.slice().forEach(function (fn) { try { fn(err); } catch (e) { console.error('location listener failed', e); } });
     if (err && err.code === 1) {
-      S.status = 'denied'; S.error = 'Location permission is blocked for this site.';
+      S.status = 'denied'; S.error = BLOCKED;
       stopWatch();
     } else if (S.fix) {
       S.error = 'Signal lost for a moment. Still trying…';
@@ -93,7 +114,7 @@ window.Eco = window.Eco || {};
       S.status = 'locating';
       S.error = err && err.code === 3
         ? 'Still looking for a position…'
-        : 'This device can’t work out its position yet. Check that location services are on (Windows: Settings → Privacy & security → Location), then press refresh.';
+        : 'This device can’t work out its position yet. Check that location services are on (' + SERVICES_OFF + '), then press refresh.';
     }
     emitChange();
   }
@@ -200,7 +221,7 @@ window.Eco = window.Eco || {};
         navigator.permissions.query({ name: 'geolocation' }).then(function (p) {
           p.onchange = function () {
             if (p.state === 'granted' && hasOwners()) { stopWatch(); S.status = S.fix ? 'ok' : 'locating'; S.error = ''; startWatch(); emitChange(); }
-            else if (p.state === 'denied') { stopWatch(); S.status = 'denied'; S.error = 'Location permission is blocked for this site.'; emitChange(); }
+            else if (p.state === 'denied') { stopWatch(); S.status = 'denied'; S.error = BLOCKED; emitChange(); }
           };
         }, function () { /* not supported */ });
       }
@@ -254,6 +275,7 @@ window.Eco = window.Eco || {};
     owners = {}; stopWatch(); clearTimeout(flushTimer); flushTimer = 0; queue = [];
     S.status = 'idle'; S.fix = null; S.address = null; S.shortName = null; S.addressFor = null; S.error = ''; S.stored = 0;
     S.geoEnabled = true; tracking = false; session = ambientId; lastStored = null;
+    try { localStorage.removeItem(LAST_KEY); } catch (e) { /* ignore */ }
     emitChange();
   }
 
@@ -282,13 +304,13 @@ window.Eco = window.Eco || {};
   if (Eco.api) Eco.api.beforeOutbox = function () { return flush(); };     // queued journeys wait for their GPS points
 
   Eco.location = {
-    state: S, supported: supported, why: why, haversine: haversine,
+    state: S, supported: supported, why: why, haversine: haversine, blockedText: BLOCKED, blockedToast: BLOCKED_TOAST,
     retain: retain, release: release, refresh: refresh, flush: flush, reset: reset,
     beginSession: beginSession, endSession: endSession, sessionId: function () { return session; },
     onFix: function (fn) { return sub(fixSubs, fn); },
     onChange: function (fn) { return sub(changeSubs, fn); },
     onError: function (fn) { return sub(errSubs, fn); },
-    label: currentLabel,
+    label: currentLabel, last: lastKnown,
     accText: accText, coordText: coordText, agoText: agoText
   };
 })();

@@ -1,6 +1,6 @@
 /* ==========================================================================
    EcoRoute - dashboard.js
-   Screen 4: Home dashboard. Greeting, simulated current location, destination
+   Screen 4: Home dashboard. Greeting, your real location on a map, destination
    search, vehicle + battery, impact summary, recent journeys and an eco tip.
    ========================================================================== */
 window.Eco = window.Eco || {};
@@ -140,6 +140,18 @@ window.Eco = window.Eco || {};
     pill.textContent = pillText; pill.className = pillCls;
   }
 
+  /** The little map follows the device: a blue dot on the real map. */
+  var mapFix = null;
+  function paintHomeMap(force) {
+    if (!map) return;
+    var f = Eco.location.state.fix;
+    if (!f) { if (force) map.setMarkers([]); return; }
+    if (!force && mapFix && Eco.geo.haversine(mapFix, f) < 4) return;
+    mapFix = { lat: f.lat, lon: f.lon };
+    map.setMarkers([{ id: 'current', type: 'current', lat: f.lat, lon: f.lon }]);
+    map.setView({ lat: f.lat, lon: f.lon, zoom: f.acc != null && f.acc > 600 ? 14 : 16 }, force ? 0 : 500);
+  }
+
   function refreshLocation(btn) {
     var svg = $('svg', btn);
     if (svg) svg.classList.add('spin');
@@ -149,14 +161,14 @@ window.Eco = window.Eco || {};
       done(); ui.toast('Location updated', 'success', { duration: 1600 });
     }, function (err) {
       done();
-      if (err && err.code === 1) ui.toast('Location is blocked. Allow it in your browser’s site settings.', 'warn', { duration: 4200 });
+      if (err && err.code === 1) ui.toast(Eco.location.blockedToast, 'warn', { duration: 4200 });
       else ui.toast('Couldn’t get a position. Try again outdoors or near a window.', 'warn', { duration: 3600 });
     });
   }
 
   function startLocation() {
     Eco.location.retain('home');
-    if (!locOff) locOff = Eco.location.onChange(function () { if (Eco.nav.current() === 'home') renderLocation(); });
+    if (!locOff) locOff = Eco.location.onChange(function () { if (Eco.nav.current() === 'home') { renderLocation(); paintHomeMap(false); } });
     clearInterval(locTick);
     locTick = setInterval(function () { if (Eco.nav.current() === 'home') renderLocation(); }, 1000);     // the "updated 5 s ago" text keeps counting
     renderLocation();
@@ -187,14 +199,9 @@ window.Eco = window.Eco || {};
     $('#home-bell-dot').classList.toggle('hidden', !!s.notifRead);
     startLocation();
 
-    if (!map) {
-      map = Eco.Map.create($('#home-map'), { interactive: false });
-      var near = Eco.data.places.filter(function (p) { return p.id !== 'green-park'; })
-        .sort(function (a, b) { return Eco.calc.mapKm(Eco.data.currentLocation, a) - Eco.calc.mapKm(Eco.data.currentLocation, b); }).slice(0, 4);
-      map.setMarkers(near.map(function (p) { return { id: p.id, type: 'poi', x: p.x, y: p.y, icon: p.icon }; })
-        .concat([{ id: 'current', type: 'current', x: Eco.data.currentLocation.x, y: Eco.data.currentLocation.y }]));
-      map.setView({ cx: Eco.data.currentLocation.x + 60, cy: Eco.data.currentLocation.y - 50, s: 0.62 });
-    } else { map.resize(); }
+    if (!map) map = Eco.Map.create($('#home-map'), { interactive: false, label: 'Map showing where you are', center: Eco.location.last() || undefined, zoom: 16 });
+    else map.resize();
+    paintHomeMap(true);
 
     renderVehicle(); renderStats(); renderRecent(); renderTip(); renderDestination();
     Eco.icons.hydrate($('#screen-home'));
@@ -203,8 +210,9 @@ window.Eco = window.Eco || {};
   function init() {
     search = Eco.routes.attachSearch({
       input: $('#home-search'), list: $('#home-suggest'), clearBtn: $('#home-search-clear'),
+      get: function () { return trip.destination; },
       onSelect: function (p) { trip.destination = p; trip.routes = []; trip.selectedId = null; renderDestination(); ui.vibrate(10); },
-      onClear: function () { renderDestination(); }
+      onClear: function () { trip.destination = null; trip.routes = []; renderDestination(); }
     });
     $('#home-recent').addEventListener('click', function (e) {
       var r = e.target.closest('[data-jid]'); if (r) Eco.tracking.openSummary(r.getAttribute('data-jid'));

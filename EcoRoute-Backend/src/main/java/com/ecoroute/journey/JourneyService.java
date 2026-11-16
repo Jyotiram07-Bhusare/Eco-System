@@ -20,7 +20,7 @@ public class JourneyService {
     public record Create(String clientRef, String fromId, String toId, String from, String to, String vehicleId, String vehicleType,
                          String vehicleLabel, String routeKind, String source, String date, double distanceKm, int durationMin,
                          int co2g, String status, Double startLat, Double startLon, String startAddress, Double endLat, Double endLon,
-                         String trackSessionId) {}
+                         String trackSessionId, Double fromLat, Double fromLon, Double toLat, Double toLon, String routePolyline) {}
 
     private final JourneyMapper journeys;
     private final LocationMapper locations;
@@ -32,6 +32,16 @@ public class JourneyService {
 
     public List<Journey> list(long userId, int limit) {
         return journeys.findByUser(userId, Math.max(1, Math.min(limit, 5000)));
+    }
+
+    /** The planned route (encoded polyline) of one of the user's journeys, or null when none was saved. */
+    public String route(long userId, long id) {
+        require(userId, id);
+        return journeys.findRoute(userId, id);
+    }
+
+    private static String blankToNull(String s) {
+        return s == null || s.isBlank() ? null : s;
     }
 
     public Journey require(long userId, long id) {
@@ -64,7 +74,8 @@ public class JourneyService {
         try {
             journeys.insert(new NewJourney(userId, ref, c.fromId(), c.toId(), c.from().trim(), c.to().trim(), c.vehicleId(), c.vehicleType(),
                     c.vehicleLabel().trim(), c.routeKind(), c.source(), startedAt, round2(c.distanceKm()), c.durationMin(), c.co2g(),
-                    saved, score, c.status(), c.startLat(), c.startLon(), c.startAddress(), c.endLat(), c.endLon()), key);
+                    saved, score, c.status(), c.startLat(), c.startLon(), c.startAddress(), c.endLat(), c.endLon(),
+                    c.fromLat(), c.fromLon(), c.toLat(), c.toLon(), blankToNull(c.routePolyline())), key);
         } catch (DuplicateKeyException race) {                      // two retries arrived together
             return journeys.findByClientRef(userId, ref);
         }

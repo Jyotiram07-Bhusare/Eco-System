@@ -3,16 +3,16 @@
    Screens 9 and 11: Live Navigation and Journey Summary.
 
    NOTHING MOVES BY ITSELF. During a journey the vehicle on the map advances only when:
-     * "Live GPS" (default): you really move. The device location sensor (Geolocation API) reports
-       where you are; the real distance you moved (x the chosen scale) advances the vehicle along
-       the route. Standing still, or GPS jitter, adds nothing.
+     * "Live GPS" (default): you really move. The device location sensor (Geolocation API) reports where you
+       are; that position is matched onto the route (the nearest point on the road) and the vehicle moves
+       there. Standing still, or GPS jitter, adds nothing. If you leave the route, a new one is found.
      * "Demo drive": you hold the drive button (or the Up arrow key). For desktops without GPS.
 
-   The map, the route and the charging stations are still a simulated city, but the position is real:
-   Live GPS takes it from Eco.location (the shared Geolocation stream). With the backend running the
-   positions of a Live GPS journey are saved to MySQL and linked to the journey; the finished journey
-   is saved too (or kept in an outbox until the server is reachable). "Save my location history"
-   off in Profile = no coordinates or addresses leave this device.
+   The map is the real OpenStreetMap map and the route is a real road route (see geo.js). Live GPS takes the
+   position from Eco.location (the shared Geolocation stream). With the backend running the positions of a Live
+   GPS journey are saved to MySQL and linked to the journey; the finished journey is saved too (or kept in an
+   outbox until the server is reachable). "Save my location history" off in Profile = no coordinates, addresses
+   or routes leave this device.
    ========================================================================== */
 window.Eco = window.Eco || {};
 (function () {
@@ -20,31 +20,22 @@ window.Eco = window.Eco || {};
   var ui = Eco.ui, $ = ui.$, esc = ui.esc, fmt = ui.fmt;
   var trip = Eco.trip;
 
-  var GPS_SCALES = [1, 5, 10, 20];        // GPS mode: 1 m you move = N m on the map (1 = real distance)
   var DEMO_SCALES = [5, 10, 20, 40];      // demo drive: the vehicle covers ground N x faster than real time
   var GPS_MIN_ACC = 30;                   // metres: fixes less accurate than this are ignored (desktop Wi-Fi/IP positions)
   var GPS_MAX_SPEED = 70;                 // m/s (~250 km/h): faster "movement" is a GPS glitch, not driving
+  var START_NEAR_M = 150;                 // further than this from where the route begins: plan a new route from where you are
+  var NAV_ZOOM = 16.5;
   var map = null, sim = null, summaryMap = null;
 
-  var ROAD_V = ['West Bypass', 'Maple Avenue', 'Cedar Road', 'Central Boulevard', 'Orchard Lane', 'Lakeview Drive', 'Garden Avenue', 'Station Road', 'Willow Street', 'University Road', 'Harbour Avenue', 'Ring Road East', 'East Bypass'];
-  var ROAD_H = ['North Ring Road', 'Skyline Link', 'Airport Road', 'Botanical Way', 'College Road', 'Market Street', 'Clock Tower Road', 'Riverside Drive', 'Hospital Road', 'Bridge Street', 'River Road', 'Promenade Way', 'Tech Park Avenue', 'Stadium Road', 'Green Corridor', 'Maple Link', 'South Ring Road'];
+  function noop() { /* ignore */ }
 
-  /* ---------- turn-by-turn steps from the route geometry ---------- */
-  function roadName(a, b) { return a.y === b.y ? (ROAD_H[Math.round(a.y / 100)] || 'Main Road') : (ROAD_V[Math.round(a.x / 100)] || 'Main Road'); }
-  function sign(n) { return n > 0 ? 1 : n < 0 ? -1 : 0; }
-
-  function buildSteps(route, dest) {
-    var pts = route.points, cum = [0], i, steps = [];
-    for (i = 1; i < pts.length; i++) cum.push(cum[i - 1] + Math.abs(pts[i].x - pts[i - 1].x) + Math.abs(pts[i].y - pts[i - 1].y));
-    var total = cum[cum.length - 1] || 1;
-    for (i = 1; i < pts.length - 1; i++) {
-      var inx = sign(pts[i].x - pts[i - 1].x), iny = sign(pts[i].y - pts[i - 1].y);
-      var outx = sign(pts[i + 1].x - pts[i].x), outy = sign(pts[i + 1].y - pts[i].y);
-      var right = (inx * outy - iny * outx) > 0;      // screen coordinates: y grows downwards
-      steps.push({ frac: cum[i] / total, icon: right ? 'corner-up-right' : 'corner-up-left', main: 'Turn ' + (right ? 'right' : 'left') + ' onto ' + roadName(pts[i], pts[i + 1]) });
-    }
-    steps.push({ frac: 1, icon: 'flag', main: 'Arrive at ' + dest.name });
-    return steps;
+  /** The route's maneuvers after "depart", ending with the arrival. at = metres from the start of this route. */
+  function buildSteps(route) {
+    var list = route.steps.filter(function (s) { return s.type !== 'depart'; }).map(function (s) {
+      return s.type === 'arrive' ? Object.assign({}, s, { text: 'Arrive at ' + trip.destination.name }) : s;
+    });
+    if (!list.length || list[list.length - 1].type !== 'arrive') list.push({ at: route.cum[route.cum.length - 1], type: 'arrive', icon: 'flag', text: 'Arrive at ' + trip.destination.name });
+    return list;
   }
 
   function meters(km) {
@@ -58,7 +49,16 @@ window.Eco = window.Eco || {};
     if (km < 1) { v.textContent = Math.round(km * 1000); u.textContent = 'm'; } else { v.textContent = fmt.km(km); u.textContent = 'km'; }
   }
 
-  function noop() { /* ignore */ }
+  /* ---------- keep the screen on while a journey runs ---------- */
+  // The Android app offers EcoApp.keepAwake (a window flag: more reliable in a WebView than the Wake Lock API).
+  function appAwake(on) { try { if (window.EcoApp && window.EcoApp.keepAwake) { window.EcoApp.keepAwake(on); return true; } } catch (e) { /* no bridge */ } return false; }
+  function wakeOn() {
+    if (!sim || sim.wake) return;
+    if (appAwake(true)) { sim.wake = { release: function () { appAwake(false); } }; return; }
+    if (!navigator.wakeLock) return;
+    navigator.wakeLock.request('screen').then(function (l) { if (sim) sim.wake = l; else l.release(); l.addEventListener && l.addEventListener('release', function () { if (sim && sim.wake === l) sim.wake = null; }); }, noop);
+  }
+  function wakeOff() { if (sim && sim.wake) { try { sim.wake.release(); } catch (e) { /* already released */ } sim.wake = null; } }
 
   /* =====================================================================
      Live navigation
@@ -69,15 +69,16 @@ window.Eco = window.Eco || {};
     sim = {
       route: route, vehicle: v, status: 'idle',
       mode: st.moveMode === 'demo' ? 'demo' : 'gps',
-      gpsScale: GPS_SCALES.indexOf(st.gpsScale) > -1 ? st.gpsScale : 1,
       demoScale: DEMO_SCALES.indexOf(st.demoScale) > -1 ? st.demoScale : 10,
-      travelled: 0, shown: 0, camKm: -1, t: 0, rt: 0, co2: 0, speed: 0,
-      D: route.distanceKm, T: route.timeMin, avg: route.distanceKm / (route.timeMin / 60),
+      // travelled / D are totals in km. offset = km completed on routes before the current one (after a re-route).
+      travelled: 0, offset: 0, shown: 0, camKm: -1, camAt: 0, t: 0, rt: 0, co2: 0, speed: 0,
+      D: route.distanceKm, T: route.timeMin, avg: route.avgSpeed,
       batt: Eco.store.state.battery, simStart: null,
-      steps: buildSteps(route, trip.destination), stepIdx: 0, follow: true,
-      raf: 0, lastTs: 0, noFollowUntil: 0, uiAt: 0,
+      steps: buildSteps(route), stepIdx: 0, follow: true, hint: 0,
+      raf: 0, lastTs: 0, noFollowUntil: 0, uiAt: 0, wake: null,
       // live GPS state (gpsOff = the unsubscribe functions of the shared location stream)
       gpsOff: null, gpsState: 'idle', acc: null, anchor: null, lastMoveAt: 0, gpsSpeedMs: 0, weakSince: 0, warned: {},
+      offCount: 0, offRoute: false, rerouting: false, nextRerouteAt: 0, startChecked: false,
       // what the location sensor reported during this journey (saved with it)
       trackSession: null, startFix: null, lastFix: null, fromLabel: null,
       // demo drive state
@@ -85,39 +86,43 @@ window.Eco = window.Eco || {};
     };
   }
 
-  function stationStatus(s) { return s.free === 0 ? 'full' : s.free / s.total <= 0.34 ? 'busy' : 'available'; }
-  function scale() { return sim.mode === 'gps' ? sim.gpsScale : sim.demoScale; }
+  function scale() { return sim.demoScale; }
 
   function navEnter() {
     if (!sim) { Eco.nav.go('home', { replace: true }); return; }
     if (map) { map.destroy(); map = null; }
-    var v = sim.vehicle, r = sim.route, d = trip.destination;
+    var v = sim.vehicle, r = sim.route, d = trip.destination, p0 = r.points[0];
     map = Eco.Map.create($('#nav-map'), {
-      label: 'Simulated live navigation map', controls: false, maxZoom: 1.6,
-      onUserMove: function () { if (sim && sim.follow) { sim.follow = false; $('[data-action="nav-recenter"]').style.color = 'var(--cur)'; } },
-      onMarkerClick: function (id) { if (id.indexOf('st:') === 0) stationSheet(id.slice(3)); }
+      label: 'Live navigation map', controls: false, center: p0, zoom: 15,
+      onUserMove: function () { if (sim && sim.follow) { sim.follow = false; $('[data-action="nav-recenter"]').style.color = 'var(--cur)'; } }
     });
-    var markers = [];
-    if (v.ev) Eco.data.stations.forEach(function (s) { markers.push({ id: 'st:' + s.id, type: 'station', x: s.x, y: s.y, status: stationStatus(s) }); });
-    markers.push({ id: 'start', type: 'start', x: r.points[0].x, y: r.points[0].y });
-    markers.push({ id: 'dest', type: 'dest', x: d.x, y: d.y, icon: d.type === 'station' ? 'zap' : 'flag', label: d.name });
-    markers.push({ id: 'veh', type: 'vehicle', x: r.points[0].x, y: r.points[0].y, rotation: 0 });
-    map.setMarkers(markers);
-    map.setRoutes([{ id: 'r', d: r.d, active: true, progress: true, width: 8 }]);
-    var p0 = map.pointAt('r', 0);
-    if (p0) map.moveMarker('veh', p0.x, p0.y, p0.angle);
+    map.setMarkers([
+      { id: 'start', type: 'start', lat: p0.lat, lon: p0.lon },
+      { id: 'dest', type: 'dest', lat: d.lat, lon: d.lon, icon: d.type === 'station' ? 'zap' : (d.icon || 'flag'), label: d.name },
+      { id: 'veh', type: 'vehicle', lat: p0.lat, lon: p0.lon, rotation: 0 }
+    ]);
+    map.setRoutes([{ id: 'r', points: r.points, cum: r.cum, active: true, progress: true, width: 8 }]);
+    var a0 = map.pointAt('r', 0);
+    if (a0) map.moveMarker('veh', a0.lat, a0.lon, a0.angle);
     sim.follow = true; $('[data-action="nav-recenter"]').style.color = '';
     $('#nv-dest').textContent = d.name;
     $('#nv-ev').classList.toggle('hidden', !v.ev);
     paintModeChips(); renderControls(); paintStats(true); paintBanner(true);
     Eco.icons.hydrate($('#screen-navigation'));
-    map.fit(r.points, { pad: navPads(), maxZoom: 1.0 });       // after the panel is filled: its height sets the padding
+    fitRoute(false);                                            // after the panel is filled: its height sets the padding
   }
 
   /** Keep the route clear of the banner, the side buttons and the bottom panel. */
   function navPads() {
     var short = $('#app').clientHeight < 700;
     return Eco.Map.overlayPads($('#nav-map'), $('#screen-navigation .nav-top'), $('#nav-panel'), { top: short ? 46 : 54, right: 108, bottom: short ? 24 : 40, left: 64 });
+  }
+  function fitRoute(animate) {
+    var pts = sim.route.points.filter(function (p, i) { return i % 6 === 0; });
+    pts.push(sim.route.points[sim.route.points.length - 1]);
+    var pad = navPads();
+    map.setAttributionOffset(pad[2] - 40);
+    map.fit(pts, { pad: pad, maxZoom: 16.5, animate: animate ? 450 : 0 });
   }
 
   function navLeave() {
@@ -130,9 +135,9 @@ window.Eco = window.Eco || {};
     var gps = sim.mode === 'gps';
     $('#nav-mode').textContent = gps ? 'GPS' : 'DEMO';
     $('#nav-mode').setAttribute('aria-label', 'Movement source: ' + (gps ? 'live GPS' : 'demo drive') + '. Tap to switch');
+    $('#nav-speed').classList.toggle('hidden', gps);             // the speed chip only means something for the demo drive
     $('#nav-speed').textContent = scale() + '×';
-    $('#nav-speed').setAttribute('aria-label', gps ? 'Distance scale ' + sim.gpsScale + ' times. Tap to change' : 'Demo drive speed ' + sim.demoScale + ' times. Tap to change');
-    $('#nav-tag-text').textContent = gps ? 'Live GPS · simulated map' : 'Demo drive · simulated map';
+    $('#nav-speed').setAttribute('aria-label', 'Demo drive speed ' + sim.demoScale + ' times. Tap to change');
   }
 
   function renderControls() {
@@ -140,7 +145,7 @@ window.Eco = window.Eco || {};
     c.classList.toggle('col', s === 'idle');
     if (s === 'idle') {
       c.innerHTML = '<p class="nav-hint">' + (sim.mode === 'gps'
-        ? '<b>Live GPS:</b> the vehicle moves only when you really move. No GPS here? Tap <b>GPS</b> (top right) for a demo drive.'
+        ? '<b>Live GPS:</b> the arrow follows you along the route as you really move. No GPS here? Tap <b>GPS</b> (top right) for a demo drive.'
         : '<b>Demo drive:</b> after Start, hold the drive button (or the ↑ key) to move. Nothing moves by itself.') + '</p>' +
         '<button type="button" class="btn btn-primary btn-lg" data-action="nav-start">' + ui.icon('play', 20) + 'Start Journey</button>';
     } else if (s === 'running' || s === 'paused') {
@@ -165,7 +170,7 @@ window.Eco = window.Eco || {};
   /** Minutes still to go: planned pace, or your real pace once there is enough live data. */
   function remainingMin() {
     var rem = Math.max(0, sim.D - sim.travelled), v = sim.avg;
-    if (sim.mode === 'gps' && sim.gpsScale === 1 && sim.rt > 90 && sim.travelled > 0.3) {
+    if (sim.mode === 'gps' && sim.rt > 90 && sim.travelled > 0.3) {
       var obs = sim.travelled / (sim.rt / 3600);
       if (obs > 5) v = obs;
     }
@@ -224,33 +229,45 @@ window.Eco = window.Eco || {};
       ic.innerHTML = ui.icon('locate-fixed', 22); main.textContent = g[0]; sub.textContent = g[1];
       return;
     }
+    if (sim.offRoute) {
+      ic.innerHTML = ui.icon('alert-triangle', 22); main.textContent = 'You left the route';
+      sub.textContent = sim.rerouting ? 'Finding a new route…' : 'Can’t find a new route yet. Check your internet';
+      return;
+    }
     var step = sim.steps[Math.min(sim.stepIdx, sim.steps.length - 1)];
-    var toStep = Math.max(0, step.frac * sim.D - sim.travelled);
+    var toStep = Math.max(0, step.at / 1000 + sim.offset - sim.travelled);
     ic.innerHTML = ui.icon(step.icon, 22);
-    main.textContent = step.main;
+    main.textContent = step.text;
     sub.textContent = 'In ' + meters(toStep);
   }
 
   /* ---------- progress: shared by both movement sources ---------- */
-  /** Apply real or demo movement of dKm (map km) at speedKmh: distance, CO2 and battery follow. */
+  /** Apply real or demo movement of dKm along the route at speedKmh: distance, CO2 and battery follow. */
   function advance(dKm, speedKmh) {
     dKm = Math.min(dKm, sim.D - sim.travelled);
     if (dKm <= 0) return;
     sim.travelled += dKm;
-    if (!(sim.mode === 'gps' && sim.gpsScale === 1)) sim.t += dKm / sim.avg * 3600;     // simulated clock follows distance when scaled
+    if (sim.mode === 'demo') sim.t += dKm / sim.avg * 3600;       // the demo clock follows the distance driven (real time passes slower)
     // CO2 rises faster in slow, stop-and-go stretches (m > 1) and slower when cruising
     var m = ui.clamp(1 + 0.35 * (sim.avg - speedKmh) / sim.avg, 0.85, 1.3);
     sim.co2 += dKm * sim.vehicle.gPerKm * sim.route.flow * m;
     if (sim.vehicle.ev) sim.batt = Math.max(0, sim.batt - dKm * sim.vehicle.whPerKm * sim.route.flow * m / (sim.vehicle.battery * 1000) * 100);
   }
 
+  /** Put the camera on a point, shifted up so the vehicle sits in the free part of the map (above the bottom panel). */
+  function followNow(pos, zoom, ms) {
+    var ch = $('#nav-map').clientHeight, panelH = $('#nav-panel').offsetHeight;
+    var visibleMid = (96 + (ch - panelH)) / 2;
+    map.follow(pos.lat, pos.lon, ch / 2 - visibleMid, zoom, ms || 0);
+  }
+
   function moveVehicle(ts) {
-    var frac = sim.D ? sim.shown / sim.D : 1;
-    var pos = map.pointAt('r', frac * map.routeLength('r'));
+    var local = Math.max(0, (sim.shown - sim.offset) * 1000);
+    var pos = map.pointAt('r', local);
     if (!pos) return;
-    map.moveMarker('veh', pos.x, pos.y, pos.angle);
-    map.setProgress('r', frac * pos.total);
-    if (sim.follow && ts > sim.noFollowUntil) followCam(pos);
+    map.moveMarker('veh', pos.lat, pos.lon, pos.angle);
+    map.setProgress('r', local);
+    if (sim.follow && ts > sim.noFollowUntil && ts - sim.camAt > 100) { sim.camAt = ts; followNow(pos, null, 0); }
   }
 
   /** One animation frame. It never creates movement; it only shows and eases what the sources report. */
@@ -259,7 +276,7 @@ window.Eco = window.Eco || {};
     var dtReal = Math.max(0, (ts - sim.lastTs) / 1000), dt = Math.min(dtReal, 0.1);
     sim.lastTs = ts;
     sim.rt += dtReal;
-    if (sim.mode === 'gps' && sim.gpsScale === 1) sim.t += dtReal;     // real elapsed time
+    if (sim.mode === 'gps') sim.t += dtReal;                      // real elapsed time
 
     if (sim.mode === 'demo') demoStep(dt); else gpsDecay(dt);
 
@@ -269,7 +286,8 @@ window.Eco = window.Eco || {};
     if (sim.shown !== sim.camKm) { moveVehicle(ts); sim.camKm = sim.shown; }
 
     // next turn
-    while (sim.stepIdx < sim.steps.length - 1 && sim.steps[sim.stepIdx].frac * sim.D - sim.travelled < 0.03) {
+    var local = (sim.travelled - sim.offset) * 1000;
+    while (sim.stepIdx < sim.steps.length - 1 && sim.steps[sim.stepIdx].at - local < 20) {
       sim.stepIdx++;
       var b = $('#nav-banner'); b.classList.remove('pulse-once'); void b.offsetWidth; b.classList.add('pulse-once');
     }
@@ -282,17 +300,38 @@ window.Eco = window.Eco || {};
     sim.raf = requestAnimationFrame(frame);
   }
 
-  function followCam(pos) {
-    var ch = $('#nav-map').clientHeight, panelH = $('#nav-panel').offsetHeight;
-    var topEdge = 96, visibleMid = (topEdge + (ch - panelH)) / 2;
-    var s = map.getView().s;
-    map.setView({ cx: pos.x, cy: pos.y - (visibleMid - ch / 2) / s });
-  }
-
   function batteryAlerts() {
     var b = sim.batt;
-    if (b <= 20 && !sim.warn20) { sim.warn20 = true; ui.toast('Battery low (' + Math.round(b) + '%). Charging stations are marked on the map.', 'warn', { duration: 4200 }); }
+    if (b <= 20 && !sim.warn20) { sim.warn20 = true; ui.toast('Battery low (' + Math.round(b) + '%). Open the Charging tab to find a charger.', 'warn', { duration: 4200 }); }
     if (b <= 8 && !sim.warn8) { sim.warn8 = true; ui.toast('Battery critical. Find a charger soon.', 'error', { duration: 4200 }); }
+  }
+
+  /* ---------- re-routing: you left the route, or you are not where it starts ---------- */
+  function applyRoute(r) {
+    sim.offset = sim.travelled;                                   // what is behind us stays counted
+    sim.route = r; sim.D = sim.offset + r.distanceKm; sim.T = r.timeMin; sim.avg = r.avgSpeed;
+    sim.steps = buildSteps(r); sim.stepIdx = 0; sim.hint = 0;
+    map.setRoutes([{ id: 'r', points: r.points, cum: r.cum, active: true, progress: true, width: 8 }]);
+    sim.camKm = -1;
+  }
+
+  /** Plan a new route from the device position to the destination and carry on along it. */
+  function rerouteFrom(p, why) {
+    if (!sim || sim.rerouting) return;
+    var mine = sim;
+    sim.rerouting = true; sim.offRoute = why === 'off'; paintBanner();
+    Eco.geo.route(p, trip.destination).then(function (cands) {
+      if (sim !== mine) return;
+      var rs = Eco.geo.buildRoutes(cands, sim.vehicle), pick = rs.filter(function (r) { return r.id === sim.route.id; })[0] || rs[0];
+      applyRoute(pick);
+      sim.rerouting = false; sim.offRoute = false; sim.offCount = 0;
+      paintBanner();
+      ui.toast(why === 'off' ? 'New route found' : 'Route updated to start where you are', 'info', { duration: 2200 });
+    }, function () {
+      if (sim !== mine) return;
+      sim.rerouting = false; sim.nextRerouteAt = Date.now() + 15000;       // no internet or a busy service: try again in a moment
+      paintBanner();
+    });
   }
 
   /* ---------- movement source 1: live GPS ---------- */
@@ -302,7 +341,7 @@ window.Eco = window.Eco || {};
     sim.gpsState = 'waiting'; sim.anchor = null; sim.acc = null; sim.speed = 0; sim.gpsSpeedMs = 0;
     if (!sim.trackSession) sim.trackSession = Eco.location.beginSession();     // positions are saved under this id, then linked to the journey
     sim.gpsOff = [Eco.location.onFix(onFix), Eco.location.onError(onGpsError)];
-    Eco.location.retain('nav');
+    Eco.location.retain('nav');                                  // a newly started watch reports the current position straight away
   }
 
   function stopGps() {
@@ -313,9 +352,9 @@ window.Eco = window.Eco || {};
   }
 
   /**
-   * A new device position (f = { lat, lon, acc, speed, heading, ts } from Eco.location). Distance only counts
-   * when you moved further than the GPS noise radius since the last accepted position ("anchor").
-   * Standing still, or the position wobbling inside that radius, adds nothing.
+   * A new device position (f = { lat, lon, acc, speed, heading, ts } from Eco.location). The vehicle only moves when
+   * you moved further than the GPS noise radius since the last accepted position ("anchor"); standing still, or the
+   * position wobbling inside that radius, adds nothing. A real move is matched onto the route.
    */
   function onFix(f) {
     if (!sim || sim.mode !== 'gps' || sim.status !== 'running') return;
@@ -326,7 +365,7 @@ window.Eco = window.Eco || {};
       if (!sim.weakSince) sim.weakSince = Date.now();
       if (Date.now() - sim.weakSince > 12000 && !sim.warned.weak) {
         sim.warned.weak = true;
-        ui.toast('No precise GPS here (±' + Math.round(acc) + ' m). Try a phone outdoors, or tap GPS (top right) for the demo drive.', 'warn', { duration: 6500 });
+        ui.toast('No precise GPS here (±' + Math.round(acc) + ' m). ' + (window.ECOROUTE_CONFIG && window.ECOROUTE_CONFIG.app ? 'Try outdoors with a clear view of the sky' : 'Try a phone outdoors') + ', or tap GPS (top right) for the demo drive.', 'warn', { duration: 6500 });
       }
       return;
     }
@@ -334,9 +373,13 @@ window.Eco = window.Eco || {};
     var now = { lat: f.lat, lon: f.lon, t: f.ts || Date.now(), acc: acc };
     sim.lastFix = { lat: f.lat, lon: f.lon };                     // where the journey ended up, as far as the sensor knows
     if (!sim.startFix) sim.startFix = { lat: f.lat, lon: f.lon };
+    if (!sim.startChecked) {                                      // not where the route begins? plan it from here
+      sim.startChecked = true;
+      if (Eco.geo.haversine(now, sim.route.points[0]) > START_NEAR_M) rerouteFrom(now, 'start');
+    }
     if (!sim.anchor) { sim.anchor = now; return; }
 
-    var d = Eco.location.haversine(sim.anchor, now);              // metres since the last accepted position
+    var d = Eco.geo.haversine(sim.anchor, now);                   // metres since the last accepted position
     var dt = Math.max(0.2, (now.t - sim.anchor.t) / 1000);
     var noise = Math.max(8, sim.anchor.acc * 1.0, acc * 1.0);     // inside this circle you are just standing still
     var reported = f.speed != null ? f.speed : null;
@@ -347,14 +390,25 @@ window.Eco = window.Eco || {};
 
     var speedMs = reported !== null && reported > 0.3 ? reported : d / dt;
     sim.gpsSpeedMs = sim.gpsSpeedMs ? sim.gpsSpeedMs * 0.5 + speedMs * 0.5 : speedMs;
-    sim.speed = sim.gpsSpeedMs * 3.6 * sim.gpsScale;
+    sim.speed = sim.gpsSpeedMs * 3.6;
     sim.lastMoveAt = performance.now();
-    advance(d * sim.gpsScale / 1000, sim.speed);
+
+    // where on the route is that? (nearest road point; never counts backwards)
+    var r = sim.route, pr = Eco.geo.snap(r.points, r.cum, now, sim.hint);
+    if (!pr || sim.rerouting) return;
+    if (pr.dist > Math.max(45, acc * 1.5)) {                      // away from the route
+      if (++sim.offCount >= 3 && Date.now() >= sim.nextRerouteAt) rerouteFrom(now, 'off');
+      return;
+    }
+    sim.offCount = 0; sim.offRoute = false; sim.hint = pr.idx;
+    var alongKm = pr.along / 1000 + sim.offset;
+    if (alongKm > sim.travelled) advance(alongKm - sim.travelled, sim.speed);
+    if (sim.D - sim.travelled < 0.03) advance(sim.D - sim.travelled, sim.speed);    // within 30 m of the end: arrived
   }
 
   function onGpsError(err) {
     if (!sim || sim.mode !== 'gps') return;
-    if (err.code === 1) { if (!sim.warned.denied) { sim.warned.denied = true; gpsUnavailable('Location permission is blocked for this site.'); } return; }
+    if (err.code === 1) { if (!sim.warned.denied) { sim.warned.denied = true; gpsUnavailable(Eco.location.blockedText); } return; }
     sim.gpsState = sim.anchor ? 'lost' : 'waiting';               // unavailable / timeout: keep waiting
   }
 
@@ -402,7 +456,7 @@ window.Eco = window.Eco || {};
     if (sim.status === 'running' && mode === 'gps') startGps();
     paintModeChips(); renderControls(); paintStats(); paintBanner();
     Eco.icons.hydrate($('#screen-navigation'));
-    if (!quiet) ui.toast(mode === 'gps' ? 'Live GPS: the map moves only when you move' : 'Demo drive: hold the drive button to move', 'info', { duration: 2400 });
+    if (!quiet) ui.toast(mode === 'gps' ? 'Live GPS: the vehicle moves only when you move' : 'Demo drive: hold the drive button to move', 'info', { duration: 2400 });
   }
 
   /* ---------- journey controls ---------- */
@@ -415,13 +469,12 @@ window.Eco = window.Eco || {};
     sim.status = 'running'; sim.simStart = new Date(); sim.lastTs = performance.now(); sim.follow = true;
     sim.fromLabel = Eco.location.label();                        // the street address you leave from (null when unknown)
     $('[data-action="nav-recenter"]').style.color = '';
-    var p = map.pointAt('r', 0);
     sim.noFollowUntil = performance.now() + 700;
-    var ch = $('#nav-map').clientHeight, panelH = $('#nav-panel').offsetHeight, visibleMid = (96 + (ch - panelH)) / 2;
-    map.setView({ cx: p.x, cy: p.y - (visibleMid - ch / 2) / 0.95, s: 0.95 }, 650);
+    followNow(map.pointAt('r', 0), NAV_ZOOM, 650);
     if (sim.mode === 'gps') startGps();                          // the browser asks for location permission here
+    wakeOn();
     renderControls(); paintStats(); paintBanner();
-    ui.toast(sim.mode === 'gps' ? 'Journey started. The map moves as you move.' : 'Journey started. Hold the drive button to move.', 'success');
+    ui.toast(sim.mode === 'gps' ? 'Journey started. The arrow moves as you move.' : 'Journey started. Hold the drive button to move.', 'success');
     Eco.icons.hydrate($('#screen-navigation'));
     sim.raf = requestAnimationFrame(frame);
   }
@@ -429,7 +482,7 @@ window.Eco = window.Eco || {};
   function pause() {
     if (!sim || sim.status !== 'running') return;
     sim.status = 'paused'; cancelAnimationFrame(sim.raf);
-    stopGps(); markDrive(false); sim.speed = 0; sim.anchor = null;
+    stopGps(); markDrive(false); wakeOff(); sim.speed = 0; sim.anchor = null;
     if (sim.vehicle.ev) setBatterySilently();
     renderControls(); paintStats(); paintBanner();
     Eco.icons.hydrate($('#screen-navigation'));
@@ -439,6 +492,7 @@ window.Eco = window.Eco || {};
     if (!sim || sim.status !== 'paused') return;
     sim.status = 'running'; sim.lastTs = performance.now();
     if (sim.mode === 'gps') startGps();                          // fresh anchor: movement while paused never counts
+    wakeOn();
     renderControls(); paintStats(); paintBanner();
     Eco.icons.hydrate($('#screen-navigation'));
     sim.raf = requestAnimationFrame(frame);
@@ -464,7 +518,7 @@ window.Eco = window.Eco || {};
 
   function arrive() {
     sim.status = 'done'; sim.travelled = sim.D; sim.speed = 0;
-    stopGps(); markDrive(false);
+    stopGps(); markDrive(false); wakeOff();
     paintStats(); paintBanner(); renderControls();
     Eco.icons.hydrate($('#screen-navigation'));
     ui.toast('You have arrived!', 'success');
@@ -476,7 +530,7 @@ window.Eco = window.Eco || {};
   function finish(status, opts) {
     if (!sim) return;
     opts = opts || {};
-    cancelAnimationFrame(sim.raf); stopGps();
+    cancelAnimationFrame(sim.raf); stopGps(); wakeOff();
     var s = sim, km = +s.travelled.toFixed(2), v = s.vehicle, d = trip.destination, o = trip.origin;
     s.status = 'done';
     if (km < 0.3 && status !== 'completed') {
@@ -484,12 +538,14 @@ window.Eco = window.Eco || {};
       cleanup(true); Eco.nav.back(); return;
     }
     var co2 = Math.round(s.co2), dur = Math.max(1, Math.round(s.t / 60));
-    var here = o.id === 'current';
+    var p0 = s.route.points[0], r = s.route;
     var j = {
-      id: 'j' + Date.now(), fromId: here ? 'green-park' : o.id, toId: d.id, from: here ? (s.fromLabel || 'Green Park') : o.name, to: d.name,
-      vehicleId: v.id, vehicleType: v.type, vehicleLabel: v.label, routeKind: s.route.id, source: s.mode,
+      id: 'j' + Date.now(), fromId: o ? o.id : 'current', toId: d.id, from: o ? o.name : (s.fromLabel || 'Your location'), to: d.name,
+      vehicleId: v.id, vehicleType: v.type, vehicleLabel: v.label, routeKind: r.id, source: s.mode,
       date: (s.simStart || new Date()).toISOString(), distanceKm: km, durationMin: dur, co2g: co2,
-      savedG: Eco.calc.carbonSaved(km, co2), ecoScore: Eco.calc.ecoScore(co2 / Math.max(km, 0.1)), status: status
+      savedG: Eco.calc.carbonSaved(km, co2), ecoScore: Eco.calc.ecoScore(co2 / Math.max(km, 0.1)), status: status,
+      fromLat: +p0.lat.toFixed(6), fromLon: +p0.lon.toFixed(6), toLat: +d.lat.toFixed(6), toLon: +d.lon.toFixed(6),
+      polyline: Eco.geo.encode(Eco.geo.simplify(r.points, 12)), hasRoute: true
     };
     var server = Eco.api.authed(), payload = null, hasTrack = false;
     if (server) {
@@ -499,12 +555,15 @@ window.Eco = window.Eco || {};
         vehicleLabel: j.vehicleLabel, routeKind: j.routeKind, source: j.source, date: j.date, distanceKm: j.distanceKm,
         durationMin: j.durationMin, co2g: j.co2g, status: j.status
       };
-      // coordinates and addresses only leave the device when "Save my location history" is on
-      if (Eco.store.state.settings.shareLocation !== false && s.startFix) {
-        payload.startLat = +s.startFix.lat.toFixed(6); payload.startLon = +s.startFix.lon.toFixed(6);
-        if (s.fromLabel) payload.startAddress = s.fromLabel;
-        if (s.lastFix) { payload.endLat = +s.lastFix.lat.toFixed(6); payload.endLon = +s.lastFix.lon.toFixed(6); }
-        if (s.trackSession) { payload.trackSessionId = s.trackSession; hasTrack = true; }
+      // coordinates, addresses and routes only leave the device when "Save my location history" is on
+      if (Eco.store.state.settings.shareLocation !== false) {
+        payload.fromLat = j.fromLat; payload.fromLon = j.fromLon; payload.toLat = j.toLat; payload.toLon = j.toLon; payload.routePolyline = j.polyline;
+        if (s.startFix) {
+          payload.startLat = +s.startFix.lat.toFixed(6); payload.startLon = +s.startFix.lon.toFixed(6);
+          if (s.fromLabel) payload.startAddress = s.fromLabel;
+          if (s.lastFix) { payload.endLat = +s.lastFix.lat.toFixed(6); payload.endLon = +s.lastFix.lon.toFixed(6); }
+          if (s.trackSession) { payload.trackSessionId = s.trackSession; hasTrack = true; }
+        }
       }
     }
     var owner = server ? Eco.store.state.user.id : null;           // asked now: a 401 below signs the account out
@@ -552,7 +611,7 @@ window.Eco = window.Eco || {};
   }
 
   function cleanup(clearSim) {
-    if (sim) { cancelAnimationFrame(sim.raf); stopGps(); }
+    if (sim) { cancelAnimationFrame(sim.raf); stopGps(); wakeOff(); }
     if (map) { map.destroy(); map = null; }
     if (clearSim) {
       if (sim && sim.trackSession) Eco.location.endSession();
@@ -560,19 +619,6 @@ window.Eco = window.Eco || {};
     }
   }
   function abort() { cleanup(true); }
-
-  function stationSheet(id) {
-    var st = Eco.data.findPlace(id); if (!st) return;
-    var cur = map ? map.pointAt('r', (sim.travelled / sim.D) * map.routeLength('r')) : { x: Eco.data.currentLocation.x, y: Eco.data.currentLocation.y };
-    var km = Eco.calc.mapKm(cur, st);
-    ui.sheet({
-      title: st.name,
-      html: '<p class="muted" style="margin-bottom:12px">' + esc(st.area) + ' · ' + fmt.km(km) + ' km from you</p>' +
-        '<div class="st-tags" style="margin:0 0 14px"><span class="tag tag-power">' + ui.icon('zap', 13) + st.kw + ' kW</span>' + st.connectors.map(function (c) { return '<span class="tag">' + esc(c) + '</span>'; }).join('') + '</div>' +
-        '<div class="callout" style="margin:0 0 14px">' + ui.icon('plug', 20) + '<div><b>' + st.free + ' of ' + st.total + ' ports free</b><p>Sample availability, not a live reading.</p></div></div>' +
-        '<button type="button" class="btn btn-secondary btn-block" data-sheet-close>Close</button>'
-    });
-  }
 
   function initNav() {
     ui.actions['nav-start'] = start;
@@ -585,22 +631,17 @@ window.Eco = window.Eco || {};
     ui.actions['nav-recenter'] = function (btn) {
       if (!sim || !map) return;
       sim.follow = true; btn.style.color = '';
-      var pos = map.pointAt('r', (sim.shown / sim.D) * map.routeLength('r'));
-      if (sim.status === 'idle') { map.fit(sim.route.points, { pad: navPads(), maxZoom: 1.0, animate: 450 }); return; }
-      var ch = $('#nav-map').clientHeight, panelH = $('#nav-panel').offsetHeight, visibleMid = (96 + (ch - panelH)) / 2;
+      if (sim.status === 'idle') { fitRoute(true); return; }
       sim.noFollowUntil = performance.now() + 500;
-      map.setView({ cx: pos.x, cy: pos.y - (visibleMid - ch / 2) / 0.95, s: 0.95 }, 450);
+      followNow(map.pointAt('r', Math.max(0, (sim.shown - sim.offset) * 1000)), NAV_ZOOM, 450);
     };
     ui.actions['nav-mode'] = function () { if (sim) setMode(sim.mode === 'gps' ? 'demo' : 'gps'); };
     ui.actions['nav-speed'] = function () {
-      if (!sim) return;
-      var gps = sim.mode === 'gps', list = gps ? GPS_SCALES : DEMO_SCALES, key = gps ? 'gpsScale' : 'demoScale';
-      sim[key] = list[(list.indexOf(sim[key]) + 1) % list.length];
-      Eco.store.state.settings[key] = sim[key]; Eco.store.save();
+      if (!sim || sim.mode !== 'demo') return;
+      sim.demoScale = DEMO_SCALES[(DEMO_SCALES.indexOf(sim.demoScale) + 1) % DEMO_SCALES.length];
+      Eco.store.state.settings.demoScale = sim.demoScale; Eco.store.save();
       paintModeChips();
-      ui.toast(gps
-        ? (sim.gpsScale === 1 ? 'Real distance: 1 m you move = 1 m on the map' : 'Distance ×' + sim.gpsScale + ': 1 m you move = ' + sim.gpsScale + ' m on the map')
-        : 'Demo drive speed ×' + sim.demoScale, 'info', { duration: 2200 });
+      ui.toast('Demo drive speed ×' + sim.demoScale, 'info', { duration: 2200 });
     };
 
     // demo drive: hold the on-screen button, or hold the Up arrow key
@@ -625,7 +666,10 @@ window.Eco = window.Eco || {};
     });
     document.addEventListener('keyup', function (e) { if (e.code === 'ArrowUp') markDrive(false); });
     window.addEventListener('blur', function () { markDrive(false); });
-    document.addEventListener('visibilitychange', function () { if (document.hidden) markDrive(false); });
+    document.addEventListener('visibilitychange', function () {
+      if (document.hidden) markDrive(false);
+      else if (sim && sim.status === 'running') wakeOn();          // the screen lock is released when the page is hidden
+    });
 
     Eco.nav.register('navigation', {
       enter: navEnter, leave: navLeave,
@@ -670,7 +714,7 @@ window.Eco = window.Eco || {};
     return best;
   }
 
-  /** Fetch the recorded GPS points of a journey and draw them to scale (no map tiles: just the path). */
+  /** Fetch the recorded GPS points of a journey and draw them to scale (just the path). */
   function loadTrack(j) {
     var host = $('#sum-track');
     if (!host || !Eco.api.authed() || j.sync || j.startLat == null || !/^\d+$/.test(String(j.id))) return;
@@ -683,14 +727,14 @@ window.Eco = window.Eco || {};
   function drawTrack(host, pts) {
     pts = pts.filter(function (p) { return p.accuracy == null || p.accuracy <= 60; });      // drop wobbly low-accuracy readings
     if (pts.length < 2) { host.classList.add('hidden'); return; }
-    var R = 6371000, rad = Math.PI / 180, lat0 = 0, i;
+    var R = 6371000, rad = Math.PI / 180, lat0 = 0;
     pts.forEach(function (p) { lat0 += p.lat; }); lat0 /= pts.length;
     var cosLat = Math.cos(lat0 * rad);
     var xy = pts.map(function (p) { return { x: p.lon * rad * cosLat * R, y: -p.lat * rad * R }; });
     var minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity, real = 0;
     xy.forEach(function (p, k) {
       minX = Math.min(minX, p.x); maxX = Math.max(maxX, p.x); minY = Math.min(minY, p.y); maxY = Math.max(maxY, p.y);
-      if (k) real += Eco.location.haversine(pts[k - 1], pts[k]);
+      if (k) real += Eco.geo.haversine(pts[k - 1], pts[k]);
     });
     var W = 300, H = 190, pad = 22;
     var w = Math.max(maxX - minX, 25), h = Math.max(maxY - minY, 25);              // a standing-still track still gets a sensible frame
@@ -718,6 +762,37 @@ window.Eco = window.Eco || {};
     if (!j) { Eco.nav.go('home', { replace: true }); return; }
     if (id) current = { j: j, fresh: !!params.fresh };
     renderSummary();
+  }
+
+  /** The route on the real map. Journeys made before routes were saved (and sample journeys) have no map. */
+  function drawRouteMap(j) {
+    var host = $('#sum-map');
+    if (!host || !current || current.j !== j) return;
+    if (summaryMap) { summaryMap.destroy(); summaryMap = null; }
+    var pts = j.polyline ? Eco.geo.decode(j.polyline) : null;
+    if (!pts || pts.length < 2) {
+      host.innerHTML = '<div class="sum-nomap">' + ui.icon('map', 22) + '<span>' + (j.sample || j.fromId === 'sample' ? 'Sample journey: it has no map.' : 'No map was saved for this journey.') + '</span></div>';
+      return;
+    }
+    var early = j.status === 'ended-early';
+    summaryMap = Eco.Map.create(host, { interactive: false, label: 'Map of the route' });
+    var a = pts[0], b = pts[pts.length - 1], markers = [{ id: 'start', type: 'start', lat: a.lat, lon: a.lon }, { id: 'dest', type: 'dest', lat: b.lat, lon: b.lon, icon: 'flag' }];
+    summaryMap.setMarkers(markers);
+    summaryMap.setRoutes([{ id: 'r', points: pts, active: true, width: 6 }]);
+    if (early) {
+      var cum = Eco.geo.cumulative(pts), total = cum[cum.length - 1], frac = Math.min(1, j.distanceKm * 1000 / Math.max(50, total));
+      var p = Eco.geo.pointAt(pts, cum, total * frac);
+      if (p) { markers.push({ id: 'stop', type: 'vehicle', lat: p.lat, lon: p.lon, rotation: p.angle }); summaryMap.setMarkers(markers); }
+    }
+    summaryMap.fit(pts.filter(function (q, i) { return i % 4 === 0; }).concat([b]), { pad: [58, 34, 26, 34], maxZoom: 16 });
+  }
+
+  /** A saved journey from the database arrives without its route (it is big): fetch it when the summary opens. */
+  function loadRoute(j) {
+    if (j.polyline || !j.hasRoute || !Eco.api.authed() || j.sync || !/^\d+$/.test(String(j.id))) return;
+    Eco.api.get('/journeys/' + j.id + '/route').then(function (r) {
+      if (r && r.polyline) { j.polyline = r.polyline; drawRouteMap(j); }
+    }, noop);
   }
 
   function renderSummary() {
@@ -766,28 +841,14 @@ window.Eco = window.Eco || {};
       : '<button type="button" class="btn btn-primary btn-lg btn-block" data-back>Done</button>';
     Eco.icons.hydrate($('#screen-summary'));
 
-    // route thumbnail
-    if (summaryMap) { summaryMap.destroy(); summaryMap = null; }
-    var a = Eco.data.findPlace(j.fromId), b = Eco.data.findPlace(j.toId);
-    if (a && b) {
-      var pts = Eco.geo.waypoints({ x: Eco.geo.snap(a.x), y: Eco.geo.snap(a.y) }, { x: Eco.geo.snap(b.x), y: Eco.geo.snap(b.y) }, j.routeKind);
-      summaryMap = Eco.Map.create($('#sum-map'), { interactive: false });
-      var markers = [{ id: 'start', type: 'start', x: a.x, y: a.y }, { id: 'dest', type: 'dest', x: b.x, y: b.y, icon: b.type === 'station' ? 'zap' : 'flag' }];
-      summaryMap.setMarkers(markers);
-      summaryMap.setRoutes([{ id: 'r', d: Eco.geo.roundedPath(pts, 26), active: true, width: 6 }]);
-      if (early) {
-        var total = summaryMap.routeLength('r'), frac = Math.min(1, j.distanceKm / Math.max(0.1, Eco.geo.polyLen(pts) * Eco.data.WORLD.kmPerUnit));
-        var p = summaryMap.pointAt('r', total * frac);
-        if (p) { markers.push({ id: 'stop', type: 'vehicle', x: p.x, y: p.y, rotation: p.angle }); summaryMap.setMarkers(markers); }
-      }
-      summaryMap.fit(pts, { pad: [58, 34, 26, 34], maxZoom: 1.0 });
-    }
+    drawRouteMap(j);
+    loadRoute(j);
   }
 
   function share() {
     if (!current) return;
     var j = current.j;
-    var text = 'EcoRoute journey: ' + j.from + ' → ' + j.to + ' · ' + fmt.km(j.distanceKm) + ' km · ' + fmt.co2Text(j.co2g) + ' CO₂ · Eco Score ' + j.ecoScore + '/100 (demo app, estimated figures).';
+    var text = 'EcoRoute journey: ' + j.from + ' → ' + j.to + ' · ' + fmt.km(j.distanceKm) + ' km · ' + fmt.co2Text(j.co2g) + ' CO₂ · Eco Score ' + j.ecoScore + '/100 (estimated figures).';
     if (navigator.share) { navigator.share({ title: 'My EcoRoute journey', text: text }).catch(function () { /* cancelled */ }); return; }
     if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(text).then(function () { ui.toast('Summary copied to clipboard', 'success'); }, function () { ui.toast('Sharing is not available here', 'info'); });
     else ui.toast('Sharing is not available here', 'info');

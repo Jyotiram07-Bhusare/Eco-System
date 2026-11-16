@@ -125,7 +125,8 @@ public class DemoDataService {
                 int minutes = (int) Math.max(3, Math.round(timeMin * frac));
                 journeys.insert(new NewJourney(userId, null, a.id(), b.id(), a.name(), b.name(), v.id(), v.type(), v.label(), kind, null, t,
                         dist, minutes, co2, EmissionMath.savedGrams(dist, co2), EmissionMath.ecoScore(co2Full, km),
-                        early ? "ended-early" : "completed", null, null, null, null, null), new IdHolder());
+                        early ? "ended-early" : "completed", null, null, null, null, null,
+                        null, null, null, null, null), new IdHolder());
             }
         }
     }

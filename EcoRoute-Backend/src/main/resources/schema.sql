@@ -101,6 +101,11 @@ CREATE TABLE IF NOT EXISTS journeys (
   start_address  VARCHAR(255) NULL,
   end_lat        DOUBLE       NULL,
   end_lon        DOUBLE       NULL,
+  from_lat       DOUBLE       NULL,
+  from_lon       DOUBLE       NULL,
+  to_lat         DOUBLE       NULL,
+  to_lon         DOUBLE       NULL,
+  route_polyline MEDIUMTEXT   NULL,
   created_at     TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (id),
   UNIQUE KEY uq_journeys_client_ref (user_id, client_ref),
@@ -129,22 +134,6 @@ CREATE TABLE IF NOT EXISTS location_points (
   CONSTRAINT fk_loc_journey FOREIGN KEY (journey_id) REFERENCES journeys (id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- Sample EV charging stations of the simulated city (x / y are map units, not GPS coordinates).
-CREATE TABLE IF NOT EXISTS charging_stations (
-  id           VARCHAR(40)  NOT NULL,
-  name         VARCHAR(120) NOT NULL,
-  area         VARCHAR(120) NOT NULL,
-  x            INT          NOT NULL,
-  y            INT          NOT NULL,
-  connectors   VARCHAR(120) NOT NULL,
-  kw           INT          NOT NULL,
-  total_ports  INT          NOT NULL,
-  free_ports   INT          NOT NULL,
-  seed_free    INT          NOT NULL,
-  updated_at   TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  PRIMARY KEY (id)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
 -- Reverse-geocoding cache, keyed by a ~100 m grid cell (lat/lon x 1000, rounded).
 CREATE TABLE IF NOT EXISTS geocode_cache (
   lat_key       INT          NOT NULL,
@@ -154,17 +143,3 @@ CREATE TABLE IF NOT EXISTS geocode_cache (
   created_at    TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (lat_key, lon_key)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
-INSERT IGNORE INTO charging_stations (id, name, area, x, y, connectors, kw, total_ports, free_ports, seed_free) VALUES
-  ('st-volthub',   'VoltHub Central',          'City Central',      600,  850, 'CCS2,Type 2',            60,  6, 4, 4),
-  ('st-lakeside',  'GreenCharge Lakeside',     'Lakeside Mall',     850,  500, 'CCS2,CHAdeMO',           50,  4, 1, 1),
-  ('st-techpark',  'EcoPlug Tech Park',        'Tech Park',        1000, 1150, 'CCS2',                  120,  8, 6, 6),
-  ('st-oldtown',   'ChargeNest Old Town',      'Old Town',          400,  650, 'Type 2,3-Pin AC',        22,  4, 0, 0),
-  ('st-sunrise',   'Sunrise EV Bay',           'Sunrise Hospital',  750, 1000, 'Type 2,3-Pin AC',         7,  6, 5, 5),
-  ('st-highway',   'RapidVolt Highway Plaza',  'Ring Road East',   1100,  750, 'CCS2,CHAdeMO',          120, 10, 7, 7),
-  ('st-maple',     'Maple EV Point',           'Maple Heights',     500, 1350, 'Type 2',                 22,  2, 2, 2),
-  ('st-airport',   'Skyline Airport Fast Hub', 'Airport T1',        950,  200, 'CCS2,CHAdeMO,Type 2',   150, 12, 3, 3),
-  ('st-riverside', 'Riverside Quick Charge',   'Riverside College', 200,  450, 'Type 2,CCS2',            30,  4, 2, 2),
-  ('st-stadium',   'Stadium Charge Hub',       'Eco Stadium',       250, 1300, 'CCS2,Type 2',            60,  6, 0, 0),
-  ('st-community', 'Green Park Community',     'Green Park',        350, 1000, 'Type 2,3-Pin AC',         7,  3, 2, 2),
-  ('st-botanical', 'Botanical Eco Point',      'Botanical Gardens', 700,  350, 'Type 2,CCS2',            50,  4, 3, 3);

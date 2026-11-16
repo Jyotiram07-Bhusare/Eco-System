@@ -1,14 +1,19 @@
 # EcoRoute backend
 
 Java + XML backend for the EcoRoute app: **Spring Boot 3.5**, **MyBatis with XML mapper files**, **MySQL 8**.
-It stores accounts, vehicles, journeys, charging stations and the **real-time location** of the user, and it
-**serves the front-end too** (`../EcoRoute`), so the whole app is one address: **http://localhost:8090**.
+It stores accounts, vehicles, journeys (with the real route that was driven) and the **real-time location** of the user,
+and it **serves the front-end too** (`../EcoRoute`), so the whole app is one address: **http://localhost:8090**.
+The same backend can also be used by the Android app ([`../EcoRoute-Android`](../EcoRoute-Android)) and by the web app
+opened from another address ("Use my own server").
 
 ```
- Browser (EcoRoute PWA) ──►  Spring Boot  ──►  MySQL  (database "ecoroute")
-   Geolocation API              /api/...          users, vehicles, journeys, location_points ...
-                                │
-                                └──►  OpenStreetMap Nominatim   (street address for a position; optional, cached)
+ Browser / Android app ──►  Spring Boot  ──►  MySQL  (database "ecoroute")
+   (EcoRoute, Leaflet map)      /api/...          users, vehicles, journeys, location_points ...
+        │                         │
+        │                         └──►  OpenStreetMap Nominatim   (street address for a position; optional, cached)
+        │
+        └──►  OpenStreetMap tiles, OSRM routing, Nominatim search, Overpass chargers
+              (called by the app itself, never through this server)
 ```
 
 ## Run it
@@ -56,12 +61,13 @@ Any other property can be overridden the same way (Spring "relaxed binding"), fo
 | `users`, `user_settings` | account, BCrypt password hash, profile, theme / notifications / goal / battery / active vehicle, "save my location history" switch, last known position |
 | `auth_tokens` | one row per signed-in device; only the **SHA-256 hash** of the token is stored; 30-day expiry |
 | `vehicles` | the user's garage (CO₂ per km is computed on the server) |
-| `journeys` | finished journeys (distance, duration, CO₂, saved CO₂, Eco Score, start / end position and address) |
+| `journeys` | finished journeys (distance, duration, CO₂, saved CO₂, Eco Score, place names; with *Save my location history* on also the start / end position and address, where the route began and ended, and the **encoded polyline** of the road route, `route_polyline`) |
 | `location_points` | recorded GPS positions (latitude, longitude, accuracy, speed, heading, time); the ones recorded during a Live GPS journey are linked to it |
-| `charging_stations` | the 12 sample EV stations (availability is simulated) |
 | `geocode_cache` | addresses already looked up (about 100 m grid), so the same place is never asked twice |
 
 Times are stored in UTC. Deleting a user removes everything that belongs to them (`ON DELETE CASCADE`).
+A database made by an older version is upgraded in place when the server starts (`SchemaUpgrade`: it adds the route
+columns and drops the old `charging_stations` table); nothing else is touched.
 
 ## API
 
@@ -73,32 +79,52 @@ Errors look like `{ "error": "validation", "message": "...", "fields": { "email"
 | `GET /api/health` | status of the server and the database (public) |
 | `POST /api/auth/register`, `/login`, `/forgot` | create account / sign in (returns the token) / password reset stub (public) |
 | `POST /api/auth/logout` | ends this device's session |
-| `GET /api/bootstrap` | user, settings, vehicles, journeys and stations in one request (used at start-up) |
+| `GET /api/bootstrap` | user, settings, vehicles and journeys in one request (used at start-up) |
 | `GET` / `PUT /api/me`, `PUT /api/me/settings` | profile and settings |
 | `POST /api/me/sample-data` | replace vehicles and journeys with the sample set |
 | `DELETE /api/me/location-history` | delete every saved GPS position |
 | `DELETE /api/me` | delete the account (body: `{ "password": "..." }`) |
 | `GET` / `POST /api/vehicles`, `DELETE /api/vehicles/{id}` | garage |
-| `GET` / `POST /api/journeys`, `DELETE /api/journeys`, `GET /api/journeys/{id}/track` | journeys and the recorded route of one |
+| `GET` / `POST /api/journeys`, `DELETE /api/journeys` | journeys (the list says `hasRoute` but never carries the big polyline) |
+| `GET /api/journeys/{id}/route` | the planned road route of one journey as an encoded polyline (404 when none was saved) |
+| `GET /api/journeys/{id}/track` | the GPS positions recorded during one journey |
 | `POST /api/location/pings`, `GET /api/location/last` | real-time location: batches of positions in, latest position out |
 | `GET /api/geo/reverse?lat=&lon=` | street address for a position |
-| `GET /api/stations`, `POST /api/stations/refresh` | charging stations |
+
+Charging stations, map tiles, routing and place search are **not** served by this backend: the app reads them
+from OpenStreetMap services directly (see [`../EcoRoute/README.md`](../EcoRoute/README.md)).
 
 ## How location works, and what leaves your computer
 
 1. The browser asks the device for its position (Geolocation API) and shows it on **Home**
    (address, coordinates, accuracy, "Live").
 2. While **Save my location history** (Profile → Privacy & data) is **on**, positions are sent to *your own* server
-   in small batches and stored in MySQL. When it is **off** the app sends no position, address or route to the
-   server (journeys are still saved, just without coordinates), and the server refuses to store location pings.
+   in small batches and stored in MySQL, and a finished journey keeps its real route (start, end, polyline). When it
+   is **off** the app sends no position, address or route to the server (journeys are still saved, just without
+   coordinates or a route), and the server refuses to store location pings.
 3. The **server** (not the browser) looks the street address up at **OpenStreetMap Nominatim**: only the
    coordinates are sent, results are cached, and calls are limited to about one per second.
    Set `GEOCODING_ENABLED=false` to turn this off completely.
 4. Positions older than 90 days are removed every night. **Delete location history** and **Delete my account**
    in Profile remove them on demand.
 
-The city map, routes and charging availability in the app are still a simulated city; only the position,
-accounts, vehicles and journeys are real data.
+The map, the routes and the chargers shown in the app come from public OpenStreetMap services that the **app**
+calls itself (this server is not involved, and nothing about them is stored except the route of a finished journey).
+
+## Using this server from the Android app or another address
+
+The web app is normally served by this backend, so API and page share one origin. A page that comes from somewhere
+else (the Android app, or the web app opened from another host) is a *cross-origin* client, and the browser only lets it
+call the API when the origin is listed in `ecoroute.cors-origins` (default: `localhost`, `127.0.0.1` on any port and
+`https://appassets.androidplatform.net`, the address the Android app is served from). To allow another page, set
+e.g. `ECOROUTE_CORS_ORIGINS=https://app.example.com,https://appassets.androidplatform.net`.
+
+* In the Android app (or the web app on another address) choose **Use my own server** on the login screen and enter the
+  server's address. Or build the APK with the address baked in: `build.ps1 -ServerUrl https://your-server`.
+* Phones can only reach this server if it is reachable from them: on the same Wi-Fi `http://<your PC's IP>:8090`
+  works (the Android app allows plain http for that), from anywhere else you need a public host with **HTTPS**
+  (a small VPS or cloud VM plus a reverse proxy such as Caddy or nginx with a Let's Encrypt certificate, MySQL on
+  the same machine, and `PORT` / `DB_*` set as above). Never expose MySQL itself to the internet.
 
 ## Security notes
 
@@ -120,7 +146,7 @@ src/main/resources/
   logback-spring.xml             logging (XML)
   mapper/*.xml                   MyBatis mapper files: all SQL lives here
 src/main/java/com/ecoroute/
-  auth  user  vehicle  journey  location  station  geo  bootstrap  health  demo   one package per feature
+  auth  user  vehicle  journey  location  geo  bootstrap  health  demo   one package per feature
   config  common                 shared configuration, errors, helpers
 src/test/java/...                unit tests
 ```

@@ -13,7 +13,6 @@ window.Eco = window.Eco || {};
 
   /* ---------- Store ---------- */
   function defaults() {
-    var garage = Eco.data.seedGarage.map(function (g) { return Eco.data.makeVehicle(g); });
     return {
       version: 1,
       onboarded: false, loggedIn: false,
@@ -21,8 +20,8 @@ window.Eco = window.Eco || {};
       // moveMode: where vehicle movement comes from during a journey: 'gps' (you really move) or 'demo' (hold to drive)
       // shareLocation: save my GPS positions in the database (only used when the backend is running)
       settings: { theme: 'system', notif: { trip: true, tips: true, charging: true, weekly: false }, moveMode: 'gps', gpsScale: 1, demoScale: 10, shareLocation: true },
-      garage: garage, activeVehicleId: 'veh-nexon', battery: 64,
-      journeys: null, recent: ['lakeside-mall', 'tech-park', 'riverside-college'],
+      garage: [], activeVehicleId: 'generic-petrol-car', battery: 64,
+      journeys: [], recent: [],              // recent = places you searched or navigated to ({ id, name, area, lat, lon, icon })
       goalKg: 20
     };
   }
@@ -43,8 +42,8 @@ window.Eco = window.Eco || {};
           }
         }
       } catch (e) { /* storage blocked: run in-memory */ }
-      // seed only the very first time (null). An empty array means the user cleared their history on purpose.
-      if (!Array.isArray(s.journeys)) s.journeys = Eco.data.seedJourneys(s.garage);
+      if (!Array.isArray(s.journeys)) s.journeys = [];
+      s.recent = (Array.isArray(s.recent) ? s.recent : []).filter(function (r) { return r && typeof r === 'object' && isFinite(r.lat) && isFinite(r.lon); });
       this.state = s;
       this.save();
     },
@@ -54,6 +53,20 @@ window.Eco = window.Eco || {};
     },
     reset: function () {
       try { localStorage.removeItem(KEY); } catch (e) { /* ignore */ }
+    },
+    /** A brand-new local profile: empty garage and history (keeps the theme and that the intro was seen). */
+    freshProfile: function () {
+      var keepTheme = this.state.settings.theme, d = defaults();
+      d.onboarded = true; d.settings.theme = keepTheme;
+      this.state = d; this.save();
+    },
+    /** The demo account's sample data: three vehicles and about five months of sample journeys. */
+    loadSample: function () {
+      var s = this.state;
+      s.garage = Eco.data.seedGarage.map(function (g) { return Eco.data.makeVehicle(g); });
+      s.activeVehicleId = 'veh-nexon'; s.battery = 64;
+      s.journeys = Eco.data.seedJourneys(s.garage);
+      this.save();
     },
     /** Replace the account data with what the server returned (GET /api/bootstrap). The database is the source of truth. */
     applyServer: function (b) {
@@ -75,10 +88,9 @@ window.Eco = window.Eco || {};
         var seen = {};
         s.recent = [];
         s.journeys.forEach(function (j) {
-          if (s.recent.length < 5 && j.toId && !seen[j.toId] && Eco.data.findPlace(j.toId)) { seen[j.toId] = 1; s.recent.push(j.toId); }
+          if (s.recent.length < 5 && j.toLat != null && j.toLon != null && j.to && !seen[j.to]) { seen[j.to] = 1; s.recent.push({ id: j.toId || 'pt:' + j.toLat + ',' + j.toLon, name: j.to, area: '', lat: j.toLat, lon: j.toLon, icon: 'map-pin' }); }
         });
       }
-      Eco.data.setStations(b.stations);
       theme.apply();
       this.save();
       if (Eco.api) Eco.api.markSynced();
@@ -178,8 +190,9 @@ window.Eco = window.Eco || {};
   }
 
   /* ---------- Trip (transient planning state, shared by planner / routes / tracking) ---------- */
+  // origin null = where the device is now; otherwise a place the user chose as the start
   var trip = { origin: null, destination: null, routes: [], selectedId: null };
-  function resetTrip() { trip.origin = Eco.data.currentLocation; trip.destination = null; trip.routes = []; trip.selectedId = null; }
+  function resetTrip() { trip.origin = null; trip.destination = null; trip.routes = []; trip.selectedId = null; }
 
   /* ---------- PWA helpers ---------- */
   var pwa = {
@@ -204,6 +217,7 @@ window.Eco = window.Eco || {};
   function registerServiceWorker() {
     if (!('serviceWorker' in navigator)) return;
     if (!/^https?:$/.test(location.protocol)) return;          // service workers need http(s) / localhost
+    if ((window.ECOROUTE_CONFIG || {}).app) return;               // the Android app already carries every file
     navigator.serviceWorker.register('service-worker.js').catch(function () { /* offline support unavailable */ });
   }
 

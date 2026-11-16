@@ -5,8 +5,6 @@ import java.util.List;
 import com.ecoroute.auth.AuthInterceptor;
 import com.ecoroute.journey.JourneyController.JourneyDto;
 import com.ecoroute.journey.JourneyService;
-import com.ecoroute.station.StationController.StationDto;
-import com.ecoroute.station.StationService;
 import com.ecoroute.user.UserController.SettingsDto;
 import com.ecoroute.user.UserController.UserDto;
 import com.ecoroute.user.UserService;
@@ -23,18 +21,16 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("/api/bootstrap")
 public class BootstrapController {
 
-    public record Bootstrap(UserDto user, SettingsDto settings, List<VehicleDto> vehicles, List<JourneyDto> journeys, List<StationDto> stations) {}
+    public record Bootstrap(UserDto user, SettingsDto settings, List<VehicleDto> vehicles, List<JourneyDto> journeys) {}
 
     private final UserService users;
     private final VehicleService vehicles;
     private final JourneyService journeys;
-    private final StationService stations;
 
-    public BootstrapController(UserService users, VehicleService vehicles, JourneyService journeys, StationService stations) {
+    public BootstrapController(UserService users, VehicleService vehicles, JourneyService journeys) {
         this.users = users;
         this.vehicles = vehicles;
         this.journeys = journeys;
-        this.stations = stations;
     }
 
     @GetMapping
@@ -43,7 +39,6 @@ public class BootstrapController {
                 UserDto.of(users.require(userId)),
                 SettingsDto.of(users.settings(userId)),
                 vehicles.list(userId).stream().map(VehicleDto::of).toList(),
-                journeys.list(userId, 1000).stream().map(JourneyDto::of).toList(),
-                stations.list().stream().map(StationDto::of).toList());
+                journeys.list(userId, 1000).stream().map(JourneyDto::of).toList());
     }
 }

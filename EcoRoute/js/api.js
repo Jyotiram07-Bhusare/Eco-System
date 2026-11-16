@@ -13,7 +13,9 @@ window.Eco = window.Eco || {};
 (function () {
   'use strict';
 
+  var C = window.ECOROUTE_CONFIG || {};
   var TOKEN_KEY = 'ecoroute.token';
+  var SERVER_KEY = 'ecoroute.server';
   var OUTBOX_KEY = 'ecoroute.outbox';
 
   var api = {
@@ -37,6 +39,20 @@ window.Eco = window.Eco || {};
   ApiError.prototype = Object.create(Error.prototype);
   ApiError.prototype.constructor = ApiError;
   api.ApiError = ApiError;
+
+  /* ---------- which server ---------- */
+  // '' = the server that delivered this page (the backend serves the app), else the address from config.js or the one
+  // the user typed on the login screen ("Use my own server"). The Android app has no server of its own.
+  function readServer() { try { return localStorage.getItem(SERVER_KEY) || ''; } catch (e) { return ''; } }
+  function trimSlash(u) { return String(u).trim().replace(/\/+$/, ''); }
+  function makeBase() { var u = trimSlash(C.serverUrl || readServer() || ''); return u ? u + '/' : ''; }
+  api.base = makeBase();
+  api.server = function () { return api.base ? trimSlash(api.base) : ''; };
+  /** Remember (or, with '', forget) a server address. The page has to reload to use it. */
+  api.setServer = function (url) {
+    try { if (url) localStorage.setItem(SERVER_KEY, trimSlash(url)); else localStorage.removeItem(SERVER_KEY); } catch (e) { /* storage blocked */ }
+    api.base = makeBase();
+  };
 
   /* ---------- token ---------- */
   function readToken() { try { return localStorage.getItem(TOKEN_KEY); } catch (e) { return null; } }
@@ -66,7 +82,7 @@ window.Eco = window.Eco || {};
     var ctrl = typeof AbortController === 'function' ? new AbortController() : null;
     var timer = ctrl ? setTimeout(function () { ctrl.abort(); }, opts.timeout || 15000) : 0;
 
-    return fetch('api' + path, {
+    return fetch(api.base + 'api' + path, {
       method: method, headers: headers, body: hasBody ? JSON.stringify(body) : undefined,
       cache: 'no-store', credentials: 'same-origin', keepalive: !!opts.keepalive, signal: ctrl ? ctrl.signal : undefined
     }).then(function (res) {
@@ -95,7 +111,8 @@ window.Eco = window.Eco || {};
   var detecting = null;
   api.detect = function (again) {
     if (detecting && !again) return detecting;
-    if (!/^https?:$/.test(location.protocol)) { api.available = false; return (detecting = Promise.resolve(false)); }
+    // no network protocol, or the Android app with no server chosen: there is nothing to ask
+    if (!/^https?:$/.test(location.protocol) || (C.app && !api.base)) { api.available = false; return (detecting = Promise.resolve(false)); }
     detecting = request('GET', '/health', undefined, { anon: true, timeout: 3500 }).then(function (h) {
       api.info = h;
       api.available = !!(h && h.app === 'EcoRoute');

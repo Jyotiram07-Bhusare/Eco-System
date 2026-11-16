@@ -27,5 +27,10 @@ public record Journey(
         Double startLon,
         String startAddress,
         Double endLat,
-        Double endLon) {
+        Double endLon,
+        Double fromLat,
+        Double fromLon,
+        Double toLat,
+        Double toLon,
+        boolean hasRoute) {
 }
